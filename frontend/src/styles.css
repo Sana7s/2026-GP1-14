@@ -1,11 +1,11 @@
 /* =====================================================================
    BurnCare — styles.css
    ---------------------------------------------------------------------
-   This file controls how the website LOOKS: colours, fonts, sizes,
+   This file controls how the website LOOKS: colors, fonts, sizes,
    spacing, animations, and how the layout changes on phones.
 
    Sections in this file:
-     1. Design tokens (colours, sizes, corners) — change these to restyle
+     1. Design tokens (colors, sizes, corners) — change these to restyle
         the whole site at once
      2. Basic page setup
      3. Top bar (navigation) + phone menu
@@ -20,10 +20,7 @@
     12. Phone & tablet adjustments (responsive design)
     13. Reduced-motion setting
 
-   Quick reminder of CSS words used below:
-     - "px"  = pixels (screen dots).
-     - "var(--name)" = use a value saved in section 1.
-     - "@media (max-width: 734px)" = only apply on screens 734px wide or less.
+  
    ===================================================================== */
 
 
@@ -31,17 +28,17 @@
    1. DESIGN TOKENS — the BurnCare style guide in one place
    ===================================================================== */
 :root {
-  /* ---- Brand colours ---- */
+  /* ---- Brand colors ---- */
   --coral: #e65359;  /* main buttons and highlights */
-  --rose: #d9434d;   /* hover colour and small labels */
+  --rose: #d9434d;   /* hover color and small labels */
   --pink: #f7d6d8;   /* soft borders and badges */
   --blush: #fceaec;  /* soft pink backgrounds */
   --white: #ffffff;
-  --ink: #29272a;    /* main text colour and dark tiles */
+  --ink: #29272a;    /* main text color and dark tiles */
   --muted: #898184;  /* secondary (grey) text */
   --line: #eadbdd;   /* thin divider lines */
 
-  /* Lighter/darker tints mixed from the colours above */
+  /* Lighter/darker tints mixed from the colors above */
   --blush-soft: #fef6f7; /* very light section background */
   --ink-soft: #615a5c;   /* body text that is softer than --ink */
 
@@ -1996,7 +1993,8 @@ main {
 /* =====================================================================
    8. REGISTER PAGE
    A narrow, centred column with lots of white space (like Apple's
-   sign-up pages). It reuses the question styles from the Guest page
+   sign-up pages). Patients get a two-part form with a progress bar
+   and a slide animation between the parts. It reuses the question styles from the Guest page
    (.field, .field-label, .field-error, the pop-up and the shake).
    ===================================================================== */
 
@@ -2246,6 +2244,327 @@ main {
   line-height: 1.75;
 }
 
+/* ---------- Page 1: choose Patient or Healthcare Staff ---------- */
+.register-subtitle {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: var(--text-lead);
+}
+
+.register-choice .register-header {
+  margin-bottom: 32px;
+}
+
+/* Larger cards, which are links to the form pages. */
+.role-card-large {
+  min-height: 210px;
+  padding: 26px;
+  text-decoration: none;
+  /* The two cards rise in one after the other. */
+  animation: rise-in 700ms var(--ease-out) both;
+  animation-delay: calc(120ms + var(--i) * 90ms);
+}
+
+.role-card-large:hover {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 4px rgba(230, 83, 89, 0.1), var(--card-shadow);
+}
+
+/* The icon box turns coral on hover. */
+.role-card-large:hover .role-icon {
+  background: var(--coral);
+  color: var(--white);
+}
+
+/* Arrow at the bottom of each card, slides right on hover. */
+.role-arrow {
+  display: inline-flex;
+  margin-top: auto;
+  padding-top: 18px;
+  color: var(--rose);
+  transition: transform 250ms var(--ease-out);
+}
+
+.role-card-large:hover .role-arrow {
+  transform: translateX(4px);
+}
+
+.register-login-link {
+  margin: 32px 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+  text-align: center;
+}
+
+.register-login-link a {
+  color: var(--rose);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.register-login-link a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Form pages: "Patient account · Change" label ---------- */
+.register-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 6px 8px 6px 6px;
+  border-radius: 999px;
+  background: var(--blush);
+  color: var(--ink);
+  font-size: var(--text-small);
+  font-weight: 500;
+}
+
+.role-chip-icon {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--rose);
+}
+
+.role-chip-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* "Change" link inside the label → back to the choice page. */
+.register-role-chip a {
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--rose);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.register-role-chip a:hover {
+  background: var(--white);
+}
+
+/* ---------- Patient form: two-part progress bar ---------- */
+.register-stepper {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  margin: -8px 0 36px;
+  animation: rise-in 500ms var(--ease-out) both;
+}
+
+/* The grey line behind the two dots, and its coral fill. */
+.stepper-track {
+  position: absolute;
+  z-index: 0;
+  top: 15px;
+  right: 60px; /* from the centre of dot 1 ... */
+  left: 60px;  /* ... to the centre of dot 2 */
+  height: 2px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.stepper-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--coral);
+  transition: width 600ms var(--ease-out); /* the line "grows" to Part 2 */
+}
+
+.stepper-item {
+  position: relative;
+  z-index: 1;
+  width: 120px; /* same width for both, so the line meets the dot centres */
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+/* Round number for each part. */
+.stepper-dot {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: 700;
+  transition: background 300ms ease, border-color 300ms ease, color 300ms ease;
+}
+
+.stepper-label {
+  color: var(--muted);
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+
+/* The part you are on, and finished parts, turn coral. */
+.stepper-item.is-current .stepper-dot,
+.stepper-item.is-done .stepper-dot {
+  border-color: var(--coral);
+  background: var(--coral);
+  color: var(--white);
+}
+
+.stepper-item.is-current .stepper-label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---------- Slide animation between Part 1 and Part 2 ---------- */
+.register-panel.slide-forward {
+  animation: slide-from-right 520ms var(--ease-out) both;
+}
+
+.register-panel.slide-back {
+  animation: slide-from-left 520ms var(--ease-out) both;
+}
+
+/* Part title ("Account info" / "Medical profile") + Back button. */
+.register-part-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.register-part-title {
+  margin: 0 0 22px;
+  font-size: var(--text-card);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.register-part-head .register-part-title {
+  margin: 0;
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 180ms ease, color 180ms ease;
+}
+
+.back-button:hover {
+  border-color: var(--coral);
+  color: var(--rose);
+}
+
+/* Grey "Optional" label next to optional fields. */
+.optional-mark {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: var(--text-tiny);
+  font-weight: 500;
+}
+
+/* Unit inside a box, e.g. "kg" or "cm". */
+.input-unit {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  color: var(--muted);
+  font-size: var(--text-small);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+/* Hide the small up/down arrows on number boxes. */
+.text-input input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.text-input input[type="number"]::-webkit-inner-spin-button,
+.text-input input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+/* Calendar icon of the date box in coral. */
+.text-input input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(36%) sepia(60%) saturate(1800%) hue-rotate(330deg);
+}
+
+/* Text box that slides open under a list when "Other (not listed)" is chosen. */
+.other-input {
+  animation: open-down 350ms var(--ease-out) both;
+}
+
+/* ---------- Consent checkbox ---------- */
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+/* The real checkbox is hidden; the drawn box below replaces it. */
+.consent input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.consent-box {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--line);
+  border-radius: 7px;
+  background: var(--white);
+  color: transparent;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.consent:hover .consent-box {
+  border-color: var(--pink);
+}
+
+/* Ticked: coral box with a white tick. */
+.consent input:checked + .consent-box {
+  border-color: var(--coral);
+  background: var(--coral);
+  color: var(--white);
+}
+
+/* Keyboard focus on the hidden checkbox shows a ring on the box. */
+.consent input:focus-visible + .consent-box {
+  outline: 3px solid rgba(217, 67, 77, 0.45);
+  outline-offset: 2px;
+}
+
+/* Missing consent: red box. */
+.field.is-missing .consent-box {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 4px rgba(217, 67, 77, 0.1);
+}
+
 /* ---------- Register page on phones ---------- */
 @media (max-width: 680px) {
   .register-page {
@@ -2479,6 +2798,24 @@ main {
 @keyframes alert-in {
   from { opacity: 0; translate: 0 -12px; }
   to { opacity: 1; translate: 0 0; }
+}
+
+/* New form part slides in from the right (Next) ... */
+@keyframes slide-from-right {
+  from { opacity: 0; transform: translateX(48px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ... or from the left (Back). */
+@keyframes slide-from-left {
+  from { opacity: 0; transform: translateX(-48px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* "Other" text box opens downward. */
+@keyframes open-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Coral dot pulse. */
