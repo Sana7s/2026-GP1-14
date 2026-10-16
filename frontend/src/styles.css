@@ -1,40 +1,43 @@
 /* =====================================================================
    BurnCare — styles.css
    ---------------------------------------------------------------------
-   This file controls how the website LOOKS: colours, fonts, sizes,
+   This file controls how the website LOOKS: colors, fonts, sizes,
    spacing, animations, and how the layout changes on phones.
 
    Sections in this file:
-     1. Design tokens (colours, sizes, corners) — change these to restyle
+     1. Design tokens (colors, sizes, corners) — change these to restyle
         the whole site at once
      2. Basic page setup
      3. Top bar (navigation) + phone menu
      4. Shared pieces: text styles, buttons, links, scroll animation
      5. Home page
      6. About Us page
-     7. "Coming soon" page
-     8. Footer
-     9. Animations (keyframes)
-    10. Phone & tablet adjustments (responsive design)
-    11. Reduced-motion setting
+     7. Guest assessment page
+     8. "Coming soon" page
+     9. Footer
+    10. Animations (keyframes)
+    11. Phone & tablet adjustments (responsive design)
+    12. Reduced-motion setting
 
-   
+  
+   ===================================================================== */
+
 
 /* =====================================================================
    1. DESIGN TOKENS — the BurnCare style guide in one place
    ===================================================================== */
 :root {
-  /* ---- Brand colours ---- */
+  /* ---- Brand colors ---- */
   --coral: #e65359;  /* main buttons and highlights */
-  --rose: #d9434d;   /* hover colour and small labels */
+  --rose: #d9434d;   /* hover color and small labels */
   --pink: #f7d6d8;   /* soft borders and badges */
   --blush: #fceaec;  /* soft pink backgrounds */
   --white: #ffffff;
-  --ink: #29272a;    /* main text colour and dark tiles */
+  --ink: #29272a;    /* main text color and dark tiles */
   --muted: #898184;  /* secondary (grey) text */
   --line: #eadbdd;   /* thin divider lines */
 
-  /* Lighter/darker tints mixed from the colours above */
+  /* Lighter/darker tints mixed from the colors above */
   --blush-soft: #fef6f7; /* very light section background */
   --ink-soft: #615a5c;   /* body text that is softer than --ink */
 
@@ -1325,7 +1328,669 @@ main {
 
 
 /* =====================================================================
-   7. "COMING SOON" PAGE
+   7. GUEST ASSESSMENT PAGE
+   An airy, single-column layout (like Apple's pages): lots of white
+   space, thin divider lines between steps, and no heavy boxes.
+   ===================================================================== */
+
+.guest-page {
+  padding: 64px var(--gutter) 110px;
+  background: linear-gradient(180deg, var(--blush-soft) 0, var(--white) 360px);
+}
+
+/* The centred column that holds everything on the page. */
+.guest-container {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+/* ---------- Page title + emergency notice ---------- */
+.guest-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 32px;
+  padding-bottom: 40px;
+  animation: rise-in 900ms var(--ease-out) both;
+}
+
+/* "Guest Assessment" — the big title. */
+.guest-header h1,
+.guest-done h1 {
+  margin: 0 0 6px;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.25;
+}
+
+/* "Assess a burn in three steps." — small, regular weight. */
+.guest-subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-lead);
+  font-weight: 400;
+}
+
+/* Emergency notice at the top right. */
+.emergency-note {
+  max-width: 330px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 0 0 0 1px var(--line), 0 6px 18px rgba(100, 35, 40, 0.05);
+}
+
+.emergency-icon {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blush);
+  color: var(--rose);
+}
+
+.emergency-note p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-label);
+  line-height: 1.55;
+}
+
+.emergency-note strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--ink);
+  font-size: var(--text-small);
+}
+
+/* ---------- Each step: separated by a thin line, lots of space ---------- */
+.guest-step {
+  padding: 44px 0;
+  border-top: 1px solid var(--line);
+}
+
+/* Step heading: small "STEP 1" label above the step title. */
+.guest-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-bottom: 28px;
+}
+
+.guest-step-label {
+  width: 100%;
+  color: var(--rose);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.guest-step-title {
+  margin: 0;
+  font-size: var(--text-card);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+/* Small "Coming soon" badge next to a step title. */
+.soon-badge {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--blush);
+  color: var(--rose);
+  font-size: var(--text-tiny);
+  font-weight: 600;
+}
+
+/* ---------- Questions ----------
+   One question per row, so the form is easy to read. */
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px;
+}
+
+/* A question that spans both columns. */
+.field-wide {
+  grid-column: 1 / -1;
+}
+
+.field {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  scroll-margin-top: 120px;
+}
+
+/* The question text. */
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--ink);
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
+/* Red star = required question. */
+.required-mark {
+  color: var(--rose);
+}
+
+/* Drop-down lists. */
+.field select {
+  width: 100%;
+  height: 48px;
+  padding: 0 40px 0 16px;
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  /* A small coral arrow on the right of each drop-down list. */
+  background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23d9434d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 16px center;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-body);
+  cursor: pointer;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.field select:hover {
+  border-color: var(--pink);
+}
+
+/* Coral ring while a drop-down list is selected. */
+.field select:focus {
+  border-color: var(--coral);
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(230, 83, 89, 0.12);
+}
+
+/* Message under a question that has a problem. */
+.field-error {
+  margin: 0;
+  color: var(--rose);
+  font-size: var(--text-label);
+  font-weight: 500;
+  animation: rise-in 300ms var(--ease-out) both;
+}
+
+/* ---- The missing question: red ring around its answers ---- */
+.field.is-missing select,
+.field.is-missing .choices,
+.field.is-missing .dropzone {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 4px rgba(217, 67, 77, 0.1);
+}
+
+.field.is-missing .field-label {
+  color: var(--rose);
+}
+
+/* Short shake when the visitor is taken to the missing question. */
+.field.is-flashing {
+  animation: shake 500ms ease;
+}
+
+/* ---- Answer buttons (only one can be chosen) ---- */
+.choices button {
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease, transform 150ms ease;
+}
+
+.choices button:hover {
+  border-color: var(--pink);
+  color: var(--rose);
+}
+
+.choices button:active {
+  transform: scale(0.96);
+}
+
+/* The chosen answer turns coral. */
+.choices button.is-selected {
+  border-color: var(--coral);
+  background: var(--coral);
+  color: var(--white);
+}
+
+/* Yes / No: a two-part switch. */
+.choices-segmented {
+  height: 48px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--blush-soft);
+}
+
+.choices-segmented button {
+  border-color: transparent;
+  border-radius: 9px;
+  background: transparent;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.choices-segmented button.is-selected {
+  border-color: transparent;
+  background: var(--white);
+  color: var(--rose);
+  box-shadow: 0 2px 8px rgba(100, 35, 40, 0.12);
+}
+
+/* Pain 0–10: eleven round buttons in one row (each at most 50px wide). */
+.choices-scale {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(0, 50px));
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--button-radius);
+}
+
+.choices-scale button {
+  aspect-ratio: 1;
+  max-width: 100%;
+  padding: 0;
+  border-radius: 50%;
+  font-weight: 600;
+}
+
+.pain-scale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: var(--text-tiny);
+}
+
+/* Cause of burn: rounded pills that wrap onto new lines. */
+.choices-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: var(--button-radius);
+}
+
+.choices-chips button {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+}
+
+/* ---------- Step 2: TBSA placeholder ---------- */
+.tbsa-placeholder {
+  min-height: 240px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px 48px;
+  padding: 32px;
+  border-radius: var(--card-radius);
+  background: var(--blush-soft);
+}
+
+/* Simple body outlines (front and back). */
+.tbsa-figure {
+  width: 84px;
+  height: auto;
+  fill: var(--white);
+  stroke: var(--pink);
+  stroke-width: 2;
+}
+
+.tbsa-placeholder p {
+  width: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-label);
+  text-align: center;
+}
+
+/* ---------- Step 3: photo upload ---------- */
+
+/* Hides the real file picker but keeps it usable by keyboard/screen readers. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* The click-or-drag box. */
+.dropzone {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 20px;
+  border: 1.5px dashed var(--pink);
+  border-radius: var(--card-radius);
+  background: var(--white);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 200ms ease, background 200ms ease, transform 200ms ease;
+}
+
+.dropzone:hover,
+.dropzone.is-dragging {
+  border-color: var(--coral);
+  background: var(--blush-soft);
+}
+
+/* While a photo is dragged over it, the box grows slightly. */
+.dropzone.is-dragging {
+  transform: scale(1.01);
+}
+
+/* Keyboard focus on the hidden file picker highlights the box. */
+#field-photo:has(#guest-photo:focus-visible) .dropzone {
+  outline: 3px solid rgba(217, 67, 77, 0.45);
+  outline-offset: 4px;
+}
+
+.dropzone-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blush);
+  color: var(--rose);
+  transition: transform 250ms var(--ease-out);
+}
+
+/* The arrow icon lifts when hovering the box. */
+.dropzone:hover .dropzone-icon {
+  transform: translateY(-3px);
+}
+
+.dropzone-title {
+  font-size: var(--text-sub);
+  font-weight: 600;
+}
+
+.dropzone-hint {
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+
+/* Photo preview after choosing a file. */
+.photo-preview {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--card-radius);
+  animation: rise-in 500ms var(--ease-out) both;
+}
+
+.photo-preview img {
+  width: 100%;
+  max-height: 340px;
+  object-fit: cover;
+  background: var(--blush-soft);
+}
+
+.photo-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.photo-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.photo-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.photo-actions .text-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+/* ---------- Assess case button ---------- */
+.guest-submit {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding-top: 44px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+
+.button-wide {
+  min-width: 260px;
+}
+
+.guest-submit p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+
+/* ---------- Pop-up: one missing question at a time ---------- */
+.missing-alert {
+  position: fixed;
+  z-index: 60;
+  top: calc(var(--nav-height) + 16px);
+  left: 50%;
+  width: min(420px, calc(100% - 32px));
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 18px 18px 20px;
+  border-radius: var(--card-radius);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 0 0 1px var(--line), 0 20px 48px rgba(100, 35, 40, 0.16);
+  transform: translateX(-50%);
+  animation: alert-in 420ms var(--ease-out) both;
+}
+
+/* Round coral "!" icon. */
+.missing-alert-icon {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--coral);
+  color: var(--white);
+  font-weight: 800;
+}
+
+.missing-alert-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.missing-alert-title {
+  margin: 4px 0 4px;
+  font-size: var(--text-body);
+  font-weight: 700;
+}
+
+.missing-alert-text {
+  margin: 0 0 10px;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+
+.missing-alert-text strong {
+  color: var(--rose);
+}
+
+/* "Go to question" link inside the pop-up. */
+.missing-alert-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--rose);
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.missing-alert-go:hover {
+  text-decoration: underline;
+}
+
+.missing-alert-close {
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ---------- Confirmation screen after "Assess case" ---------- */
+.guest-done {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+  animation: rise-in 700ms var(--ease-out) both;
+}
+
+.guest-done-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: var(--coral);
+  color: var(--white);
+  box-shadow: 0 12px 26px rgba(217, 67, 77, 0.28);
+}
+
+.guest-done-text {
+  max-width: 540px;
+  margin: 0 auto;
+  color: #71696b;
+  font-size: var(--text-lead);
+  line-height: 1.75;
+}
+
+/* Summary of the answers, shown as small tiles. */
+.guest-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 32px 0 0;
+  text-align: left;
+}
+
+.guest-summary div {
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--blush-soft);
+}
+
+.guest-summary dt {
+  color: var(--muted);
+  font-size: var(--text-tiny);
+}
+
+.guest-summary dd {
+  margin: 4px 0 0;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+/* ---------- Guest page on smaller screens ---------- */
+
+/* Tablets: the emergency notice moves under the title. */
+@media (max-width: 760px) {
+  .guest-header {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .emergency-note {
+    max-width: none;
+  }
+}
+
+/* Phones: one question per row, pain buttons on two rows. */
+@media (max-width: 680px) {
+  .guest-page {
+    padding-top: 44px;
+  }
+
+  .guest-step {
+    padding: 36px 0;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+
+  .choices-scale {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .guest-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .button-wide {
+    width: 100%;
+  }
+
+  /* The pop-up sits at the bottom on phones so it doesn't cover the question. */
+  .missing-alert {
+    top: auto;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+
+/* =====================================================================
+   8. "COMING SOON" PAGE
    ===================================================================== */
 .coming-soon {
   min-height: 70vh;
@@ -1384,7 +2049,7 @@ main {
 
 
 /* =====================================================================
-   8. FOOTER
+   9. FOOTER
    ===================================================================== */
 .site-footer {
   border-top: 1px solid rgba(234, 219, 221, 0.8);
@@ -1478,7 +2143,7 @@ main {
 
 
 /* =====================================================================
-   9. ANIMATIONS — each @keyframes describes one movement
+   10. ANIMATIONS — each @keyframes describes one movement
    ===================================================================== */
 
 /* Page fade-in. */
@@ -1518,6 +2183,21 @@ main {
   to { background-position: -200% 0; }
 }
 
+/* Small left-right shake (missing question). */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+/* Pop-up slides down into view. */
+@keyframes alert-in {
+  from { opacity: 0; translate: 0 -12px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
 /* Coral dot pulse. */
 @keyframes dot-pulse {
   0%, 100% { box-shadow: 0 0 0 4px rgba(230, 83, 89, 0.12); }
@@ -1526,7 +2206,7 @@ main {
 
 
 /* =====================================================================
-   10. PHONE & TABLET ADJUSTMENTS (responsive design)
+   11. PHONE & TABLET ADJUSTMENTS (responsive design)
    ---------------------------------------------------------------------
    The rules inside each @media block only apply when the screen is at
    most that wide. Larger screens ignore them.
@@ -1666,7 +2346,7 @@ main {
 
 
 /* =====================================================================
-   11. REDUCED MOTION
+   12. REDUCED MOTION
    If the visitor turned on "reduce motion" in their device settings,
    switch off all animations and show everything straight away.
    ===================================================================== */
