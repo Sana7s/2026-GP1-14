@@ -10,9 +10,12 @@
      5. Home page
      6. About Us page
      7. Guest assessment page
-     8. "Coming soon" page .. used for Register and Login for now
+     8. Register page
+     9. "Coming soon" page .. used for Login for now
 
-   
+   How React works in one sentence: each "function" below that starts with
+   a capital letter (like HomePage) is a *component* — a reusable piece of
+   the page that returns HTML-like code (called JSX).
    ===================================================================== */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -189,7 +192,7 @@ function App() {
         <Route path="/" element={<HomePage content={content} />} />
         <Route path="/about" element={<AboutPage content={content} />} />
         <Route path="/guest" element={<GuestPage />} />
-        <Route path="/register" element={<ComingSoonPage title="Create an account" />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<ComingSoonPage title="Log in" />} />
         {/* "*" means "any other address" — shows a not-found page. */}
         <Route path="*" element={<ComingSoonPage title="Page not found" />} />
@@ -1460,8 +1463,416 @@ function BodyOutline() {
 }
 
 /* =====================================================================
-   8. "COMING SOON" PAGE
-   Used for Register and Login until those features are built.
+   8. REGISTER PAGE ("Create your account")
+   The visitor chooses a role (Patient or Healthcare Staff), then fills
+   in their details. EVERY field is required, and each one is checked
+   (e.g. the email must look like an email). If something is missing or
+   wrong, a pop-up names ONE problem at a time and points to it.
+   ===================================================================== */
+
+// The two kinds of account a visitor can create.
+const ACCOUNT_ROLES = [
+  {
+    value: "patient",
+    title: "Patient",
+    text: "Track my own cases",
+    icon: "patient",
+  },
+  {
+    value: "staff",
+    title: "Healthcare Staff",
+    text: "Enter cases, receive consultations",
+    icon: "staff",
+  },
+];
+
+// The empty form: nothing filled in yet.
+const EMPTY_ACCOUNT = {
+  role: "",
+  fullName: "",
+  phone: "",
+  email: "",
+  password: "",
+  confirm: "",
+};
+
+// The order fields are checked in, and the name shown in the pop-up.
+const ACCOUNT_FIELDS = [
+  { key: "role", label: "Account type" },
+  { key: "fullName", label: "Full name" },
+  { key: "phone", label: "Phone number" },
+  { key: "email", label: "Email" },
+  { key: "password", label: "Password" },
+  { key: "confirm", label: "Confirm password" },
+];
+
+// Checks ONE field and returns a problem message, or "" if it is fine.
+function checkAccountField(key, values) {
+  const value = String(values[key] ?? "").trim();
+
+  switch (key) {
+    case "role":
+      return value ? "" : "Please choose whether you are a patient or healthcare staff.";
+
+    case "fullName":
+      if (!value) return "Please enter your full name.";
+      if (value.length < 3) return "Your name looks too short.";
+      return "";
+
+    case "phone": {
+      if (!value) return "Please enter your phone number.";
+      // Remove spaces, dashes and brackets, then count the digits.
+      const digits = value.replace(/[\s\-()]/g, "");
+      if (!/^\+?\d{9,15}$/.test(digits)) return "Enter a valid phone number, e.g. 05X XXX XXXX.";
+      return "";
+    }
+
+    case "email":
+      if (!value) return "Please enter your email.";
+      // Simple check: something@something.something
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Enter a valid email, e.g. name@example.com.";
+      return "";
+
+    case "password":
+      if (!values.password) return "Please create a password.";
+      if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(values.password)) {
+        return "Use at least 8 characters, with at least one letter and one number.";
+      }
+      return "";
+
+    case "confirm":
+      if (!values.confirm) return "Please type your password again.";
+      if (values.confirm !== values.password) return "The two passwords don't match.";
+      return "";
+
+    default:
+      return "";
+  }
+}
+
+function RegisterPage() {
+  const [account, setAccount] = useState(EMPTY_ACCOUNT); // what the visitor typed
+  const [problems, setProblems] = useState({}); // problem message per field
+  const [showAlert, setShowAlert] = useState(false); // show the pop-up?
+  const [showPassword, setShowPassword] = useState(false); // show password text?
+  const [registered, setRegistered] = useState(false); // form accepted?
+
+  // The pop-up shows ONE problem at a time: the first field (in order) with a problem.
+  const current = ACCOUNT_FIELDS.find(({ key }) => problems[key]);
+
+  // Only the field named in the pop-up is outlined in red.
+  const hasProblem = (key) => current?.key === key;
+
+  // Save what the visitor typed or chose. If that field had a problem,
+  // check it again straight away so the warning disappears once it's fixed.
+  const update = (key, value) => {
+    const next = { ...account, [key]: value };
+    setAccount(next);
+
+    const recheckConfirm = key === "password" && problems.confirm;
+    if (problems[key] || recheckConfirm) {
+      const updated = { ...problems };
+      if (problems[key]) updated[key] = checkAccountField(key, next);
+      // Changing the password can fix (or break) the "confirm" match.
+      if (recheckConfirm) updated.confirm = checkAccountField("confirm", next);
+      setProblems(updated);
+    }
+  };
+
+  // Close the pop-up once every problem is fixed.
+  useEffect(() => {
+    if (showAlert && !current) setShowAlert(false);
+  }, [current, showAlert]);
+
+  // Scroll to a field, give it a small shake, and put the cursor in it.
+  const goToField = (key) => {
+    const box = document.getElementById(`field-${key}`);
+    if (!box) return;
+    box.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+    box.classList.remove("is-flashing");
+    void box.offsetWidth; // restarts the shake animation
+    box.classList.add("is-flashing");
+    box.querySelector("input, button")?.focus({ preventScroll: true });
+  };
+
+  // Runs when "Register" is pressed.
+  const handleSubmit = (event) => {
+    event.preventDefault(); // stop the page from reloading
+
+    // Check every field and collect the problems.
+    const found = {};
+    ACCOUNT_FIELDS.forEach(({ key }) => {
+      const message = checkAccountField(key, account);
+      if (message) found[key] = message;
+    });
+    setProblems(found);
+
+    // Something is missing or wrong: show the pop-up and go to the first one.
+    const first = ACCOUNT_FIELDS.find(({ key }) => found[key]);
+    if (first) {
+      setShowAlert(true);
+      goToField(first.key);
+      return;
+    }
+
+    // All fields are valid.
+    // TODO (backend): send `account` to the Flask API here to create the
+    // account in the database (never store the password as plain text).
+    setRegistered(true);
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  };
+
+  const roleTitle = ACCOUNT_ROLES.find((role) => role.value === account.role)?.title;
+
+  // ---------- After a valid form: confirmation screen ----------
+  if (registered) {
+    return (
+      <section className="register-page">
+        <div className="register-done">
+          <span className="guest-done-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28">
+              <path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <h1>Welcome to BurnCare, {account.fullName.trim().split(/\s+/)[0]}.</h1>
+          <p className="register-done-text">
+            Your {roleTitle?.toLowerCase()} account details are complete. Account
+            creation will be connected to the BurnCare server in the next step.
+          </p>
+          <div className="hero-actions">
+            <Link className="button button-primary" to="/login">
+              Go to login
+            </Link>
+            <Link className="text-link" to="/">
+              Back to home <Chevron />
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // ---------- The registration form ----------
+  return (
+    <section className="register-page">
+      {/* ===== Pop-up: shows ONE problem at a time ===== */}
+      {showAlert && current && (
+        <div className="missing-alert" role="alert" key={current.key}>
+          <span className="missing-alert-icon" aria-hidden="true">!</span>
+          <div className="missing-alert-body">
+            <p className="missing-alert-title">
+              {account[current.key] ? "Please check this field" : "Required field not filled"}
+            </p>
+            <p className="missing-alert-text">
+              <strong>{current.label}:</strong> {problems[current.key]}
+            </p>
+            <button type="button" className="missing-alert-go" onClick={() => goToField(current.key)}>
+              Go to field <Chevron />
+            </button>
+          </div>
+          <button
+            type="button"
+            className="missing-alert-close"
+            onClick={() => setShowAlert(false)}
+            aria-label="Close message"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      <div className="register-container">
+        {/* ===== Title ===== */}
+        <header className="register-header">
+          <h1>Create your account</h1>
+        </header>
+
+        {/* noValidate: we show our own friendly messages instead of the browser's. */}
+        <form onSubmit={handleSubmit} noValidate>
+          {/* ===== "I am joining as…" — two role cards ===== */}
+          <div
+            id="field-role"
+            className={`field role-field${hasProblem("role") ? " is-missing" : ""}`}
+          >
+            <span className="field-label" id="label-role">
+              I am joining as… <span className="required-mark" aria-hidden="true">*</span>
+            </span>
+            <div className="role-cards" role="radiogroup" aria-labelledby="label-role">
+              {ACCOUNT_ROLES.map((role) => {
+                const selected = account.role === role.value;
+                return (
+                  <button
+                    type="button"
+                    key={role.value}
+                    role="radio"
+                    aria-checked={selected}
+                    className={`role-card${selected ? " is-selected" : ""}`}
+                    onClick={() => update("role", role.value)}
+                  >
+                    {/* Small tick in the corner when this card is chosen. */}
+                    <span className="role-check" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="14" height="14">
+                        <path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                    <span className="role-icon" aria-hidden="true">
+                      <RoleIcon name={role.icon} />
+                    </span>
+                    <span className="role-title">{role.title}</span>
+                    <span className="role-text">{role.text}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {hasProblem("role") && <p className="field-error">{problems.role}</p>}
+          </div>
+
+          {/* ===== Account details ===== */}
+          <div className="register-fields">
+            <TextField
+              id="fullName"
+              label="Full name"
+              type="text"
+              autoComplete="name"
+              placeholder="e.g. Sara Ahmed"
+              value={account.fullName}
+              onChange={update}
+              problem={hasProblem("fullName") && problems.fullName}
+            />
+
+            <TextField
+              id="phone"
+              label="Phone number"
+              type="tel"
+              autoComplete="tel"
+              inputMode="tel"
+              placeholder="05X XXX XXXX"
+              value={account.phone}
+              onChange={update}
+              problem={hasProblem("phone") && problems.phone}
+            />
+
+            <TextField
+              id="email"
+              label="Email"
+              type="email"
+              autoComplete="email"
+              placeholder="name@example.com"
+              value={account.email}
+              onChange={update}
+              problem={hasProblem("email") && problems.email}
+            />
+
+            <TextField
+              id="password"
+              label="Password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+              value={account.password}
+              onChange={update}
+              problem={hasProblem("password") && problems.password}
+              hint="Use at least 8 characters, with a letter and a number."
+              // Button inside the box to show or hide the password.
+              action={
+                <button
+                  type="button"
+                  className="input-action"
+                  onClick={() => setShowPassword((shown) => !shown)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              }
+            />
+
+            <TextField
+              id="confirm"
+              label="Confirm password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="Type your password again"
+              value={account.confirm}
+              onChange={update}
+              problem={hasProblem("confirm") && problems.confirm}
+            />
+          </div>
+
+          {/* ===== Register button ===== */}
+          <div className="register-submit">
+            <button type="submit" className="button button-primary register-button">
+              Register
+            </button>
+            <p>
+              Already have an account? <Link to="/login">Log in</Link>
+            </p>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+// One labelled text box (used for name, phone, email and passwords).
+// "problem" = the red message to show under it (or nothing).
+// "action"  = an optional button shown inside the box (e.g. Show password).
+function TextField({ id, label, value, onChange, problem, hint, action, ...inputProps }) {
+  return (
+    <div id={`field-${id}`} className={`field${problem ? " is-missing" : ""}`}>
+      <label className="field-label" htmlFor={`account-${id}`}>
+        {label} <span className="required-mark" aria-hidden="true">*</span>
+      </label>
+      <div className={`text-input${action ? " has-action" : ""}`}>
+        <input
+          id={`account-${id}`}
+          value={value}
+          onChange={(e) => onChange(id, e.target.value)}
+          aria-invalid={Boolean(problem)}
+          aria-describedby={hint ? `hint-${id}` : undefined}
+          required
+          {...inputProps}
+        />
+        {action}
+      </div>
+      {problem ? (
+        <p className="field-error">{problem}</p>
+      ) : (
+        hint && <p className="field-hint" id={`hint-${id}`}>{hint}</p>
+      )}
+    </div>
+  );
+}
+
+// Simple line icons for the two role cards.
+function RoleIcon({ name }) {
+  const line = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+  };
+  if (name === "staff") {
+    // Medical cross inside a rounded square = healthcare staff.
+    return (
+      <svg viewBox="0 0 24 24" width="24" height="24">
+        <rect {...line} x="3.5" y="3.5" width="17" height="17" rx="5" />
+        <path {...line} d="M12 8v8M8 12h8" />
+      </svg>
+    );
+  }
+  // Person = patient.
+  return (
+    <svg viewBox="0 0 24 24" width="24" height="24">
+      <circle {...line} cx="12" cy="8" r="3.5" />
+      <path {...line} d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
+    </svg>
+  );
+}
+
+/* =====================================================================
+   9. "COMING SOON" PAGE
+   Used for Login until it is built.
    ===================================================================== */
 function ComingSoonPage({ title }) {
   return (

@@ -1,11 +1,11 @@
 /* =====================================================================
    BurnCare — styles.css
    ---------------------------------------------------------------------
-   This file controls how the website LOOKS: colors, fonts, sizes,
+   This file controls how the website LOOKS: colours, fonts, sizes,
    spacing, animations, and how the layout changes on phones.
 
    Sections in this file:
-     1. Design tokens (colors, sizes, corners) — change these to restyle
+     1. Design tokens (colours, sizes, corners) — change these to restyle
         the whole site at once
      2. Basic page setup
      3. Top bar (navigation) + phone menu
@@ -13,13 +13,17 @@
      5. Home page
      6. About Us page
      7. Guest assessment page
-     8. "Coming soon" page
-     9. Footer
-    10. Animations (keyframes)
-    11. Phone & tablet adjustments (responsive design)
-    12. Reduced-motion setting
+     8. Register page
+     9. "Coming soon" page
+    10. Footer
+    11. Animations (keyframes)
+    12. Phone & tablet adjustments (responsive design)
+    13. Reduced-motion setting
 
-  
+   Quick reminder of CSS words used below:
+     - "px"  = pixels (screen dots).
+     - "var(--name)" = use a value saved in section 1.
+     - "@media (max-width: 734px)" = only apply on screens 734px wide or less.
    ===================================================================== */
 
 
@@ -27,17 +31,17 @@
    1. DESIGN TOKENS — the BurnCare style guide in one place
    ===================================================================== */
 :root {
-  /* ---- Brand colors ---- */
+  /* ---- Brand colours ---- */
   --coral: #e65359;  /* main buttons and highlights */
-  --rose: #d9434d;   /* hover color and small labels */
+  --rose: #d9434d;   /* hover colour and small labels */
   --pink: #f7d6d8;   /* soft borders and badges */
   --blush: #fceaec;  /* soft pink backgrounds */
   --white: #ffffff;
-  --ink: #29272a;    /* main text color and dark tiles */
+  --ink: #29272a;    /* main text colour and dark tiles */
   --muted: #898184;  /* secondary (grey) text */
   --line: #eadbdd;   /* thin divider lines */
 
-  /* Lighter/darker tints mixed from the colors above */
+  /* Lighter/darker tints mixed from the colours above */
   --blush-soft: #fef6f7; /* very light section background */
   --ink-soft: #615a5c;   /* body text that is softer than --ink */
 
@@ -1990,7 +1994,286 @@ main {
 
 
 /* =====================================================================
-   8. "COMING SOON" PAGE
+   8. REGISTER PAGE
+   A narrow, centred column with lots of white space (like Apple's
+   sign-up pages). It reuses the question styles from the Guest page
+   (.field, .field-label, .field-error, the pop-up and the shake).
+   ===================================================================== */
+
+.register-page {
+  padding: 64px var(--gutter) 110px;
+  background: linear-gradient(180deg, var(--blush-soft) 0, var(--white) 360px);
+}
+
+/* The centred column. */
+.register-container {
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* ---------- Title ---------- */
+.register-header {
+  margin-bottom: 36px;
+  text-align: center;
+  animation: rise-in 900ms var(--ease-out) both;
+}
+
+.register-header h1,
+.register-done h1 {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.25;
+}
+
+/* ---------- "I am joining as…" role cards ---------- */
+.role-field {
+  margin-bottom: 36px;
+}
+
+.role-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  border-radius: var(--card-radius);
+}
+
+/* One role card. */
+.role-card {
+  position: relative;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 20px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--card-radius);
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+}
+
+.role-card:hover {
+  border-color: var(--pink);
+  transform: translateY(-2px);
+}
+
+/* The chosen card: coral border and a soft coral glow. */
+.role-card.is-selected {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 4px rgba(230, 83, 89, 0.12);
+}
+
+.role-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 14px;
+  border-radius: 13px;
+  background: var(--blush);
+  color: var(--rose);
+  transition: background 200ms ease, color 200ms ease;
+}
+
+/* The icon box turns coral when the card is chosen. */
+.role-card.is-selected .role-icon {
+  background: var(--coral);
+  color: var(--white);
+}
+
+.role-title {
+  font-size: var(--text-sub);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.role-text {
+  color: var(--muted);
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+
+/* Small round tick in the top-right corner (hidden until chosen). */
+.role-check {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--coral);
+  color: var(--white);
+  transform: scale(0);
+  transition: transform 250ms var(--ease-out);
+}
+
+.role-card.is-selected .role-check {
+  transform: scale(1);
+}
+
+/* Missing role: red ring around both cards. */
+.role-field.is-missing .role-cards {
+  box-shadow: 0 0 0 2px var(--rose), 0 0 0 6px rgba(217, 67, 77, 0.1);
+}
+
+/* ---------- Text fields (name, phone, email, passwords) ---------- */
+.register-fields {
+  display: grid;
+  gap: 26px;
+}
+
+/* The box that holds a text input (and an optional "Show" button). */
+.text-input {
+  position: relative;
+}
+
+.text-input input {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-body);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.text-input input::placeholder {
+  color: #b3abad;
+}
+
+.text-input input:hover {
+  border-color: var(--pink);
+}
+
+/* Coral ring while typing in a box. */
+.text-input input:focus {
+  border-color: var(--coral);
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(230, 83, 89, 0.12);
+}
+
+/* Leave room on the right for the "Show" button. */
+.text-input.has-action input {
+  padding-right: 70px;
+}
+
+/* "Show / Hide" password button inside the box. */
+.input-action {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--rose);
+  font: inherit;
+  font-size: var(--text-label);
+  font-weight: 600;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.input-action:hover {
+  background: var(--blush);
+}
+
+/* Missing or wrong field: red ring. */
+.field.is-missing .text-input input {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 4px rgba(217, 67, 77, 0.1);
+}
+
+/* Grey helper text under a field (e.g. password rules). */
+.field-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+
+/* ---------- Register button ---------- */
+.register-submit {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  margin-top: 40px;
+  text-align: center;
+}
+
+.register-button {
+  width: 100%;
+}
+
+.register-submit p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.register-submit a {
+  color: var(--rose);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.register-submit a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Confirmation screen ---------- */
+.register-done {
+  max-width: 560px;
+  margin: 0 auto;
+  text-align: center;
+  animation: rise-in 700ms var(--ease-out) both;
+}
+
+.register-done-text {
+  margin: 10px auto 0;
+  color: #71696b;
+  font-size: var(--text-lead);
+  line-height: 1.75;
+}
+
+/* ---------- Register page on phones ---------- */
+@media (max-width: 680px) {
+  .register-page {
+    padding-top: 44px;
+  }
+
+  .role-card {
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .role-icon {
+    width: 38px;
+    height: 38px;
+    margin-bottom: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  /* Very small phones: role cards stack. */
+  .role-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =====================================================================
+   9. "COMING SOON" PAGE
    ===================================================================== */
 .coming-soon {
   min-height: 70vh;
@@ -2049,7 +2332,7 @@ main {
 
 
 /* =====================================================================
-   9. FOOTER
+   10. FOOTER
    ===================================================================== */
 .site-footer {
   border-top: 1px solid rgba(234, 219, 221, 0.8);
@@ -2143,7 +2426,7 @@ main {
 
 
 /* =====================================================================
-   10. ANIMATIONS — each @keyframes describes one movement
+   11. ANIMATIONS — each @keyframes describes one movement
    ===================================================================== */
 
 /* Page fade-in. */
@@ -2206,7 +2489,7 @@ main {
 
 
 /* =====================================================================
-   11. PHONE & TABLET ADJUSTMENTS (responsive design)
+   12. PHONE & TABLET ADJUSTMENTS (responsive design)
    ---------------------------------------------------------------------
    The rules inside each @media block only apply when the screen is at
    most that wide. Larger screens ignore them.
@@ -2346,7 +2629,7 @@ main {
 
 
 /* =====================================================================
-   12. REDUCED MOTION
+   13. REDUCED MOTION
    If the visitor turned on "reduce motion" in their device settings,
    switch off all animations and show everything straight away.
    ===================================================================== */
