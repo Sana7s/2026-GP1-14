@@ -1,7 +1,7 @@
 /* =====================================================================
-   BurnCare — pages/GuestPage.jsx
+   BurnCare 
    ---------------------------------------------------------------------
-   The Guest assessment page (address: /guest). No account needed.
+   The Guest assessment page no account needed.
 
    The page has THREE screens, shown one after another:
      1. Emergency check — 3 quick safety questions on their own page.

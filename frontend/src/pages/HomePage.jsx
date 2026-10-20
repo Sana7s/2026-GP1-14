@@ -1,9 +1,8 @@
 /* =====================================================================
-   BurnCare — pages/HomePage.jsx
+   BurnCare 
    ---------------------------------------------------------------------
-   The Home page (address: /).
-   All the text shown on this page is written in this one file (in the
-   "HOME PAGE TEXT" part just below), so you only need to edit here.
+   The Home page 
+   
    ===================================================================== */
 
 import { useRef } from "react";
