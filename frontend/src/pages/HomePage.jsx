@@ -2,18 +2,83 @@
    BurnCare — pages/HomePage.jsx
    ---------------------------------------------------------------------
    The Home page (address: /).
+   All the text shown on this page is written in this one file (in the
+   "HOME PAGE TEXT" part just below), so you only need to edit here.
    ===================================================================== */
 
 import { useRef } from "react";
 import { Link } from "react-router-dom";
-import { STEPS, FEATURES } from "../content.js";
 import { Reveal, useScrollProgress, heroProgress, statementProgress } from "../components/animations.jsx";
 import { Chevron } from "../components/Chevron.jsx";
 
 /* =====================================================================
+   HOME PAGE TEXT — change the wording here
+   ===================================================================== */
+
+// The slogan, the line under it, and the "Why BurnCare" sentence.
+const HOME_TEXT = {
+  tagline: "Know the burn. Act in time.",
+  heroSubtitle:
+    "Answer a few quick questions, mark the burn on a body map, and add a photo. BurnCare tells you whether the burn needs no treatment, can be treated locally, or needs a burn unit.",
+  homeDescription:
+    "Many burns sent to burn units could be treated closer to home, while some serious burns are missed. BurnCare helps anyone decide, in minutes, where a burn should be treated.",
+};
+
+// The three steps of an assessment ("How it works").
+const STEPS = [
+  {
+    title: "Check for emergencies",
+    text: "BurnCare first asks three brief safety questions to identify urgent warning signs, and directs the user to emergency services when immediate help is needed.",
+  },
+  {
+    title: "Describe the burn",
+    text: "Answer a few questions about the patient and the burn, mark the burned areas on a body map, and upload a photo.",
+  },
+  {
+    title: "Receive a recommendation",
+    text: "A clear report recommends whether the burn requires no treatment, care at a local clinic, or transfer to a burn unit, and explains the reasons.",
+  },
+];
+
+// The six main features ("What BurnCare does").
+// "icon" picks the drawing used for each card (see FeatureIcon below).
+const FEATURES = [
+  {
+    icon: "depth",
+    title: "Burn depth check",
+    text: "The AI looks at the burn photo to estimate whether it is superficial, partial thickness or full thickness.",
+  },
+  {
+    icon: "triage",
+    title: "Where to treat",
+    text: "Every case receives one of three recommendations: no treatment needed, treat locally, or treat at a burn unit.",
+  },
+  {
+    icon: "body",
+    title: "Body map (TBSA)",
+    text: "Tap the burned areas on a front-and-back body map to estimate how much of the body is burned (Total Body Surface Area).",
+  },
+  {
+    icon: "heatmap",
+    title: "Heatmap explanations",
+    text: "A colour-coded heatmap shows which parts of the photo the AI focused on when judging the burn depth.",
+  },
+  {
+    icon: "voice",
+    title: "Voice entry",
+    text: "Answer the questions by speaking instead of typing, which helps when your hands are busy helping the patient.",
+  },
+  {
+    icon: "report",
+    title: "PDF reports",
+    text: "Download your report as a PDF to share with a doctor or a burn unit.",
+  },
+];
+
+/* =====================================================================
    5. HOME PAGE
    ===================================================================== */
-function HomePage({ content }) {
+function HomePage() {
   // Track scrolling over the hero so the logo can zoom slightly.
   const heroRef = useRef(null);
   useScrollProgress(heroRef, heroProgress, 0);
@@ -25,10 +90,10 @@ function HomePage({ content }) {
         <div className="hero-copy">
           <p className="eyebrow">
             <span className="eyebrow-dot" />
-            AI-assisted burn assessment
+            AI-assisted burn referral
           </p>
-          <h1 className="hero-title">{content.tagline}</h1>
-          <p className="hero-subtitle">{content.heroSubtitle}</p>
+          <h1 className="hero-title">{HOME_TEXT.tagline}</h1>
+          <p className="hero-subtitle">{HOME_TEXT.heroSubtitle}</p>
           <div className="hero-actions">
             <Link className="button button-primary" to="/guest">
               Try a free assessment
@@ -50,14 +115,14 @@ function HomePage({ content }) {
       </section>
 
       {/* ---------- STATEMENT: words light up while scrolling ---------- */}
-      <ScrollStatement eyebrow="Why BurnCare" text={content.homeDescription} />
+      <ScrollStatement eyebrow="Why BurnCare" text={HOME_TEXT.homeDescription} />
 
       {/* ---------- HOW IT WORKS: three numbered steps ---------- */}
       <section className="section">
         <div className="section-inner">
           <Reveal className="section-heading">
             <p className="eyebrow">How it works</p>
-            <h2>Three steps to a clearer picture.</h2>
+            <h2>Three steps to the right place of care.</h2>
           </Reveal>
           <ol className="steps">
             {STEPS.map((step, index) => (
@@ -76,7 +141,7 @@ function HomePage({ content }) {
         <div className="section-inner">
           <Reveal className="section-heading">
             <p className="eyebrow">What BurnCare does</p>
-            <h2>Everything you need for a first assessment.</h2>
+            <h2>Everything you need to decide where a burn is treated.</h2>
           </Reveal>
           <div className="feature-grid">
             {FEATURES.map((feature, index) => (
@@ -101,8 +166,8 @@ function HomePage({ content }) {
               <span className="tile-kicker">For everyone · 01</span>
               <h2>Try a free assessment.</h2>
               <p>
-                No account needed. Upload a photo, enter the details, and download
-                your report as a PDF.
+                No account needed. Answer a few questions, add a photo, and find
+                out where the burn should be treated.
               </p>
               <div className="tile-actions">
                 <Link className="button button-light" to="/guest">
@@ -133,8 +198,9 @@ function HomePage({ content }) {
               <span className="tile-kicker">Patients &amp; staff · 02</span>
               <h2>Create an account.</h2>
               <p>
-                Patients save reports, ask the wound-care assistant questions, and
-                track recovery. Healthcare staff review cases securely.
+                Patients save reports, ask the burn-care assistant questions, and
+                track healing. Healthcare staff review shared cases and ask burn
+                specialists for advice.
               </p>
               <div className="tile-actions">
                 <Link className="button button-primary" to="/register">
@@ -176,9 +242,9 @@ function HomePage({ content }) {
           </span>
           <h2>Support for decisions, not a replacement for doctors.</h2>
           <p>
-            BurnCare does not diagnose burns, prescribe treatment, or decide on
-            surgery. When the AI is unsure, it says so and recommends seeing a
-            healthcare professional.
+            BurnCare follows established burn referral guidelines to suggest where
+            a burn should be treated. It does not diagnose burns or prescribe
+            treatment, and when in doubt it always recommends specialist care.
           </p>
           <Link className="text-link" to="/about">
             Learn about the project <Chevron />
@@ -231,7 +297,7 @@ function FeatureIcon({ name }) {
         <path {...common} d="M3 16l9 4 9-4" />
       </>
     ),
-    // Gauge = urgency
+    // Gauge = where to treat
     triage: (
       <>
         <path {...common} d="M4 17a8 8 0 1116 0" />
