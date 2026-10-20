@@ -1,33 +1,81 @@
 /* =====================================================================
-   BurnCare — pages/AboutPage.jsx
+   BurnCare 
    ---------------------------------------------------------------------
-   The About Us page (address: /about).
+   The About Us page 
+   Everything this page shows is written in this one file:
+     - ABOUT_TEXT: the intro paragraph, the vision and the mission
+     - TEAM: the supervisor and the four developers (name, role, bio)
    ===================================================================== */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_CONTENT } from "../content.js";
 import { prefersReducedMotion, Reveal } from "../components/animations.jsx";
+
+/* =====================================================================
+   ABOUT US PAGE TEXT 
+   ===================================================================== */
+const ABOUT_TEXT = {
+  // The page title.
+  title: "About BurnCare",
+
+  // The paragraph under the title.
+  intro:
+    "BurnCare is an AI-assisted burn referral platform. It combines a few key questions, a body map of the burned area and a photo of the burn to recommend whether a burn needs no treatment, can be treated at a local clinic, or should be transferred to a burn unit. It helps anyone who sees a burn first, from family members to healthcare staff, act quickly and with confidence.",
+
+  // The dark "Our Vision" tile.
+  vision:
+    "A future where every burn patient reaches the right place of care in time, whether the burn happens at home, in a rural community, or far from a specialist burn unit.",
+
+  // The pink "Our Mission" tile.
+  mission:
+    "To give the public, healthcare staff and first responders a fast and reliable way to decide where a burn should be treated, by combining established referral criteria, burn size estimation and AI photo analysis, so that serious burns reach specialist care and minor burns are treated closer to home.",
+};
+
+/* =====================================================================
+   TEAM — shown in the "Meet the team" cards (supervisor first)
+   ===================================================================== */
+const TEAM = [
+  {
+    id: "supervisor",
+    name: "Dr. Lama Alzaben",
+    role: "Supervisor & Product Owner",
+    bio: "Department of Information Technology, King Saud University. Guides the BurnCare team and sets the product direction.",
+  },
+  {
+    id: 1,
+    name: "Sana Aljaber",
+    role: "Project Leader & Developer",
+    bio: "Leads the BurnCare project and develops the platform and its features.",
+  },
+  {
+    id: 2,
+    name: "Lana Alhussaini",
+    role: "Scrum Master & Developer",
+    bio: "Leads the team's Scrum process and develops the BurnCare platform.",
+  },
+  {
+    id: 3,
+    name: "Shatha Alharthi",
+    role: "Developer",
+    bio: "Software developer on the BurnCare team, building the platform and its features.",
+  },
+  {
+    id: 4,
+    name: "Reema Al-Saud",
+    role: "Developer",
+    bio: "Software developer on the BurnCare team, building the platform and its features.",
+  },
+];
 
 /* =====================================================================
    6. ABOUT US PAGE
    ===================================================================== */
-function AboutPage({ content }) {
-  // Use up to four developers; fall back to the defaults if Flask sends
-  // something that is not a list.
-  const developers = Array.isArray(content.developers)
-    ? content.developers.slice(0, 4)
-    : DEFAULT_CONTENT.developers;
-
-  // The full team: the supervisor first, then the developers.
-  const supervisor = content.supervisor?.name ? content.supervisor : DEFAULT_CONTENT.supervisor;
-  const team = [supervisor, ...developers];
-
+function AboutPage() {
   return (
     <div className="about-page">
       {/* ---------- INTRO ---------- */}
       <section className="about-hero">
-        <h1>About {content.brandName}</h1>
-        <p className="about-lead">{content.aboutIntro}</p>
+        <h1>{ABOUT_TEXT.title}</h1>
+        <p className="about-lead">{ABOUT_TEXT.intro}</p>
       </section>
 
       {/* ---------- VISION & MISSION: two large tiles ---------- */}
@@ -37,19 +85,19 @@ function AboutPage({ content }) {
             <span className="purpose-number" aria-hidden="true">01</span>
             <span className="tile-kicker">01 / Our vision</span>
             <h2>Our Vision</h2>
-            <p>{content.vision}</p>
+            <p>{ABOUT_TEXT.vision}</p>
           </Reveal>
           <Reveal as="article" className="purpose-tile purpose-mission" delay={120}>
             <span className="purpose-number" aria-hidden="true">02</span>
             <span className="tile-kicker">02 / Our mission</span>
             <h2>Our Mission</h2>
-            <p>{content.mission}</p>
+            <p>{ABOUT_TEXT.mission}</p>
           </Reveal>
         </div>
       </section>
 
       {/* ---------- TEAM: swipeable cards (supervisor + developers) ---------- */}
-      <DeveloperCarousel developers={team} />
+      <DeveloperCarousel developers={TEAM} />
     </div>
   );
 }

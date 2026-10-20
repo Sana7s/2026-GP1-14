@@ -12,6 +12,7 @@
      4. Shared pieces: text styles, buttons, links, scroll animation
      5. Home page
      6. About Us page
+     6b. About Us page — Design B (alternative)
      7. Guest assessment page
      7b. Guest page: emergency check, "Call 997" message, report, printing
      8. Register page
@@ -1052,9 +1053,11 @@ main {
 /* =====================================================================
    6. ABOUT US PAGE
    ===================================================================== */
+/* The intro: more room above the title, and room below the paragraph so
+   the soft pink background fades smoothly into white before the tiles. */
 .about-hero {
-  padding: 72px var(--gutter) 0;
-  background: linear-gradient(180deg, var(--blush-soft), var(--white));
+  padding: 88px var(--gutter) 72px;
+  background: linear-gradient(180deg, var(--blush-soft) 0%, var(--white) 100%);
   text-align: center;
 }
 
@@ -1080,9 +1083,33 @@ main {
   line-height: 1.8;
 }
 
-/* Space between the intro and the Vision & Mission tiles. */
+/* Space between the intro and the Vision & Mission tiles
+   (most of the space now comes from the intro's bottom padding above). */
 .about-page .purpose-section {
-  padding-top: 64px;
+  padding-top: 16px;
+}
+
+/* The two tiles rise in gently, one after the other, when the page opens. */
+.about-page .purpose-tile.reveal {
+  transform: translateY(40px);
+  transition:
+    transform 1100ms var(--ease-out) calc(var(--reveal-delay, 0ms) + 200ms),
+    opacity 1100ms var(--ease-out) calc(var(--reveal-delay, 0ms) + 200ms);
+}
+
+.about-page .purpose-tile.reveal.is-visible {
+  transform: none;
+}
+
+/* Phones: a little less space, so the tiles appear sooner. */
+@media (max-width: 680px) {
+  .about-hero {
+    padding: 56px var(--gutter) 48px;
+  }
+
+  .about-page .purpose-section {
+    padding-top: 8px;
+  }
 }
 
 /* ---------- Vision & Mission tiles ---------- */
