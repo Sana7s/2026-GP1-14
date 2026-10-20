@@ -1,5 +1,5 @@
 /* =====================================================================
-   BurnCare — styles.css
+   BurnCare 
    ---------------------------------------------------------------------
    This file controls how the website LOOKS: colors, fonts, sizes,
    spacing, animations, and how the layout changes on phones.
@@ -2773,6 +2773,27 @@ main {
   border-color: var(--coral);
   outline: none;
   box-shadow: 0 0 0 4px rgba(230, 83, 89, 0.12);
+}
+
+/* ---------- Phone number: country list + number box side by side ---------- */
+.phone-input {
+  display: grid;
+  grid-template-columns: minmax(150px, 42%) minmax(0, 1fr);
+  gap: 10px;
+}
+
+/* Long country names are cut with "…" so the list keeps its width. */
+.phone-input select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* On phones the list sits above the number box. */
+@media (max-width: 480px) {
+  .phone-input {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Leave room on the right for the "Show" button. */
