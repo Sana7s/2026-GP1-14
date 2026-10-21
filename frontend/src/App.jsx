@@ -17,6 +17,9 @@ import { SiteLayout } from "./components/Layout.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import AboutPage from "./pages/AboutPage.jsx";
 import GuestPage from "./pages/GuestPage.jsx";
+import PatientEntry from "./pages/PatientEntry.jsx";
+import PatientHistory from "./pages/PatientHistory.jsx";
+import TrackRecovery from "./pages/TrackRecovery";
 import { RegisterChoicePage, RegisterPage } from "./pages/RegisterPages.jsx";
 import ComingSoonPage from "./pages/ComingSoonPage.jsx";
 
