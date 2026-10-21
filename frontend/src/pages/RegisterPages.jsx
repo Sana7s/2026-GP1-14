@@ -1,5 +1,5 @@
 /* =====================================================================
-   BurnCare 
+   BurnCare — pages/RegisterPages.jsx
    ---------------------------------------------------------------------
    The registration pages:
      /register          → choose Patient or Healthcare Staff
@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { prefersReducedMotion } from "../components/animations.jsx";
 import { Chevron } from "../components/Chevron.jsx";
+import { api } from "../api.js";
 
 /* =====================================================================
    8. REGISTER PAGES ("Create your account")
@@ -332,6 +333,8 @@ function RegisterPage({ role }) {
   const [step, setStep] = useState(1); // which part of the form (1 or 2)
   const [direction, setDirection] = useState("forward"); // slide direction for the animation
   const [registered, setRegistered] = useState(false); // form accepted?
+  const [saving, setSaving] = useState(false); // waiting for the server?
+  const [serverError, setServerError] = useState(""); // message from the server
   const formTopRef = useRef(null);
 
   const isPatient = account.role === "patient";
@@ -422,7 +425,7 @@ function RegisterPage({ role }) {
   };
 
   // Runs when the main button is pressed ("Register", "Next" or "Create account").
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault(); // stop the page from reloading
 
     if (step === 1) {
@@ -436,12 +439,33 @@ function RegisterPage({ role }) {
       return;
     }
 
-    // Everything required is valid.
-    // TODO (backend): send `account` to the Flask API here to create the
-    // account in the database (never store the password as plain text).
-    // Save the phone with its country code: fullPhoneNumber(account)
-    // e.g. "+966512345678".
-    // Staff accounts should start as "pending" until the admin approves them.
+    // Everything required is valid: send the form to Flask
+    // (POST /api/auth/register). Flask checks it again, saves the account
+    // in the database (the password is saved as a hash, never as text)
+    // and the phone with its country code. Staff start as "pending".
+    if (saving) return;
+    setSaving(true);
+    setServerError("");
+    try {
+      await api("/api/auth/register", { method: "POST", body: account });
+    } catch (problem) {
+      // If Flask names a field (e.g. "This email already exists"),
+      // show that problem in the usual pop-up and go to the field.
+      const onPartOne = partOneFields.some(({ key }) => key === problem.field);
+      const onPartTwo = MEDICAL_FIELDS.some(({ key }) => key === problem.field);
+      if (onPartOne || onPartTwo) {
+        if (onPartOne && step === 2) goToStep(1);
+        setProblems({ [problem.field]: problem.message });
+        setShowAlert(true);
+        window.setTimeout(() => goToField(problem.field), 350);
+      } else {
+        setServerError(problem.message);
+      }
+      return;
+    } finally {
+      setSaving(false);
+    }
+
     setRegistered(true);
     window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
   };
@@ -457,10 +481,18 @@ function RegisterPage({ role }) {
             </svg>
           </span>
           <h1>Welcome to BurnCare, {account.fullName.trim().split(/\s+/)[0]}.</h1>
-          <p className="register-done-text">
-            Your {roleTitle?.toLowerCase()} account details are complete. Account
-            creation will be connected to the BurnCare server in the next step.
-          </p>
+          {/* Patients can use BurnCare straight away (they are logged in). */}
+          {isPatient ? (
+            <p className="register-done-text">
+              Your patient account has been created and you are now logged in.
+            </p>
+          ) : (
+            <p className="register-done-text">
+              Your request has been sent to the BurnCare admin. They will check your
+              details and SCFHS number, and you can use BurnCare once your account is
+              approved. You can log in at any time to see the status of your request.
+            </p>
+          )}
           {/* Staff who are not burn specialists: remind them they can ask a specialist. */}
           {!isPatient && !canGiveConsultations(account.staffRole) && (
             <p className="register-done-text">
@@ -468,9 +500,15 @@ function RegisterPage({ role }) {
             </p>
           )}
           <div className="hero-actions">
-            <Link className="button button-primary" to="/login">
-              Go to login
-            </Link>
+            {isPatient ? (
+              <Link className="button button-primary" to="/guest">
+                Start an assessment
+              </Link>
+            ) : (
+              <Link className="button button-primary" to="/login">
+                Go to login
+              </Link>
+            )}
             <Link className="text-link" to="/">
               Back to home <Chevron />
             </Link>
@@ -819,8 +857,14 @@ function RegisterPage({ role }) {
 
           {/* ===== Main button ===== */}
           <div className="register-submit">
-            <button type="submit" className="button button-primary register-button">
-              {step === 2 ? "Create account" : isPatient ? "Next" : "Register"}
+            {/* Shown when the server could not create the account. */}
+            {serverError && (
+              <p className="form-error" role="alert">
+                {serverError}
+              </p>
+            )}
+            <button type="submit" className="button button-primary register-button" disabled={saving}>
+              {saving ? "Creating account…" : step === 2 ? "Create account" : isPatient ? "Next" : "Register"}
               {step === 1 && isPatient && <Chevron />}
             </button>
             {step === 1 && (
