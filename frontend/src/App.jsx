@@ -17,6 +17,7 @@ import { SiteLayout } from "./components/Layout.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import AboutPage from "./pages/AboutPage.jsx";
 import GuestPage from "./pages/GuestPage.jsx";
+import AdminPage from "./pages/AdminPage.jsx"; //  the Admin page
 import PatientEntry from "./pages/PatientEntry.jsx";
 import PatientHistory from "./pages/PatientHistory.jsx";
 import TrackRecovery from "./pages/TrackRecovery";
@@ -60,6 +61,7 @@ function App() {
         <Route path="/" element={<HomePage content={content} />} />
         <Route path="/about" element={<AboutPage content={content} />} />
         <Route path="/guest" element={<GuestPage />} />
+        <Route path="/admin" element={<AdminPage />} /> {/*  the Admin page */}
         {/* Register: first choose a role, then fill in that role's form. */}
         <Route path="/register" element={<RegisterChoicePage />} />
         <Route path="/register/patient" element={<RegisterPage role="patient" />} />
