@@ -1,5 +1,5 @@
 /* =====================================================================
-   BurnCare 
+   BurnCare — styles.css
    ---------------------------------------------------------------------
    This file controls how the website LOOKS: colors, fonts, sizes,
    spacing, animations, and how the layout changes on phones.
@@ -3225,6 +3225,786 @@ main {
   }
 }
 
+
+/* =====================================================================
+   8b. ADMIN PAGE (used by AdminPage.jsx)
+   Summary tiles, tabs, the request list with a review panel, the staff
+   table and the activity log.
+   ===================================================================== */
+.admin-page {
+  min-height: calc(100vh - var(--nav-height));
+  padding: 48px var(--gutter) 96px;
+  background: linear-gradient(180deg, var(--blush-soft) 0, var(--white) 320px);
+}
+
+.admin-container {
+  max-width: var(--wide);
+  margin: 0 auto;
+  animation: page-enter 500ms var(--ease-out) both;
+}
+
+/* ---------- Title ---------- */
+.admin-header {
+  margin-bottom: 28px;
+}
+
+.admin-kicker {
+  margin: 0 0 6px;
+  color: var(--rose);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-header h1 {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.admin-subtitle {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: var(--text-body);
+}
+
+/* ---------- Summary tiles ---------- */
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-stat {
+  display: grid;
+  gap: 4px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+}
+
+.admin-stat-value {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.admin-stat-label {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* A tile that needs attention is coral. */
+.admin-stat.is-warn {
+  border-color: var(--pink);
+  background: var(--blush);
+}
+
+.admin-stat.is-warn .admin-stat-value {
+  color: var(--rose);
+}
+
+/* Warning line under the tiles (too few burn specialists). */
+.admin-notice {
+  margin: 14px 0 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--coral);
+  border-radius: 10px;
+  background: var(--blush-soft);
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  line-height: 1.6;
+}
+
+.admin-notice strong {
+  color: var(--rose);
+}
+
+/* ---------- Tabs ---------- */
+.admin-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 32px 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: -1px;
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+
+.admin-tab:hover {
+  color: var(--ink);
+}
+
+.admin-tab.is-active {
+  border-bottom-color: var(--coral);
+  color: var(--ink);
+}
+
+/* Small number next to a tab name. */
+.admin-count {
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--blush);
+  color: var(--rose);
+  font-size: var(--text-label);
+  text-align: center;
+}
+
+/* ---------- Filter buttons (chips) ---------- */
+.admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.admin-chip {
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.admin-chip:hover {
+  border-color: var(--pink);
+}
+
+.admin-chip.is-active {
+  border-color: var(--coral);
+  background: var(--coral);
+  color: var(--white);
+}
+
+/* ---------- Requests: list on the left, review panel on the right ---------- */
+.admin-review {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.admin-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-request {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.admin-request:hover {
+  border-color: var(--pink);
+  transform: translateY(-1px);
+}
+
+/* The request open in the panel. */
+.admin-request.is-selected {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 3px rgba(230, 83, 89, 0.1);
+}
+
+.admin-request-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-request-name {
+  overflow: hidden;
+  font-size: var(--text-body);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-request-role {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.admin-request-side {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.admin-request-time {
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+
+/* Round circle with initials. Burn specialists are coral. */
+.admin-avatar {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blush);
+  color: var(--rose);
+  font-size: var(--text-small);
+  font-weight: 700;
+}
+
+.admin-avatar.is-specialist {
+  background: var(--coral);
+  color: var(--white);
+}
+
+.admin-avatar-large {
+  width: 52px;
+  height: 52px;
+  font-size: var(--text-body);
+}
+
+/* Small labels: Overdue, Possible duplicate, Info requested… */
+.admin-flags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.admin-flag {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: var(--text-micro);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.admin-flag.is-overdue { background: var(--coral); color: var(--white); }
+.admin-flag.is-duplicate { background: #fff2dc; color: #a35f00; }
+.admin-flag.is-info { background: #eef2f7; color: #4a5a70; }
+.admin-flag.is-specialist { margin-left: 8px; background: var(--blush); color: var(--rose); }
+
+/* ---------- Review panel ---------- */
+.admin-panel {
+  position: sticky;
+  top: calc(var(--nav-height) + 20px);
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--white);
+  box-shadow: var(--card-shadow);
+  animation: slide-from-right 420ms var(--ease-out) both;
+}
+
+.admin-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.admin-panel-head h2 {
+  margin: 0;
+  font-size: var(--text-card);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.admin-panel-role {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* Yellow box: the SCFHS number is used by another account. */
+.admin-warning {
+  margin: 18px 0 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff6e6;
+  color: #8a5300;
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+
+/* Details: label on the left, value on the right. */
+.admin-details {
+  display: grid;
+  margin: 18px 0 0;
+}
+
+.admin-details div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px dashed #f1e4e5;
+}
+
+.admin-details dt {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.admin-details dd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: var(--text-small);
+  font-weight: 600;
+  text-align: right;
+  word-break: break-word;
+}
+
+/* Numbers that are easier to read letter by letter. */
+.admin-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
+.admin-copy {
+  padding: 3px 9px;
+  border: 1px solid var(--pink);
+  border-radius: 7px;
+  background: var(--white);
+  color: var(--rose);
+  font: inherit;
+  font-size: var(--text-label);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-copy:hover {
+  background: var(--blush);
+}
+
+/* ---------- Checklist ---------- */
+.admin-checklist {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.admin-checklist-title {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 4px;
+  color: var(--rose);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-checklist-title span {
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.admin-check {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: var(--text-small);
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.admin-check:hover {
+  border-color: var(--pink);
+}
+
+/* The real checkbox is hidden; the drawn box below shows the tick. */
+.admin-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.admin-check-box {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1.5px solid var(--pink);
+  border-radius: 6px;
+  color: transparent;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.admin-check input:checked + .admin-check-box {
+  border-color: var(--coral);
+  background: var(--coral);
+  color: var(--white);
+}
+
+.admin-check:has(input:checked) {
+  border-color: var(--pink);
+  background: var(--blush-soft);
+}
+
+.admin-check input:focus-visible + .admin-check-box {
+  box-shadow: 0 0 0 4px rgba(230, 83, 89, 0.15);
+}
+
+/* ---------- Decision buttons ---------- */
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 22px;
+}
+
+/* A greyed-out button that cannot be pressed yet. */
+.admin-actions .button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.admin-text-button {
+  padding: 6px 4px;
+  border: 0;
+  background: none;
+  color: var(--rose);
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-text-button:hover {
+  text-decoration: underline;
+}
+
+.admin-hint {
+  width: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+
+.admin-reject {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  animation: open-down 320ms var(--ease-out) both;
+}
+
+.admin-reject .admin-filters {
+  margin: 10px 0 12px;
+}
+
+.admin-reject .admin-hint {
+  margin-top: 4px;
+}
+
+/* Text box used for search and for the "Other" reject reason. */
+.admin-input {
+  width: 100%;
+  height: 44px;
+  margin-bottom: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-body);
+}
+
+.admin-input:focus {
+  border-color: var(--coral);
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(230, 83, 89, 0.12);
+}
+
+.admin-search {
+  max-width: 380px;
+  margin-bottom: 14px;
+}
+
+/* Box in the review panel: a correction was already requested. */
+.admin-correction {
+  margin: 18px 0 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #eef2f7;
+  color: #3f4d61;
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+
+/* Preview of the correction instructions the person will receive. */
+.admin-fix-preview {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 12px 14px 12px 30px;
+  border-radius: 10px;
+  background: var(--blush-soft);
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+
+/* "No requests" message. */
+.admin-empty {
+  padding: 48px 20px;
+  border: 1.5px dashed var(--pink);
+  border-radius: 16px;
+  background: var(--blush-soft);
+  color: var(--muted);
+  text-align: center;
+}
+
+.admin-empty p {
+  margin: 0;
+}
+
+/* ---------- Staff table ---------- */
+.admin-table {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+}
+
+.admin-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 0.8fr) 100px;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+  font-size: var(--text-small);
+}
+
+.admin-row-head {
+  border-top: 0;
+  background: var(--blush-soft);
+  color: var(--muted);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-row-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+}
+
+.admin-row-name small {
+  display: block;
+  color: var(--muted);
+  font-size: var(--text-label);
+  font-weight: 400;
+}
+
+.admin-row-action {
+  text-align: right;
+}
+
+.admin-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+
+.admin-status.is-active { background: #e8f5ea; color: #2f7a3d; }
+.admin-status.is-suspended { background: #f2eff0; color: var(--muted); }
+
+.admin-empty-row {
+  margin: 0;
+  padding: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--text-small);
+  text-align: center;
+}
+
+/* ---------- Activity log (a simple timeline) ---------- */
+.admin-log {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 4px 0 0 4px;
+  list-style: none;
+}
+
+.admin-log-item {
+  position: relative;
+  display: flex;
+  gap: 14px;
+}
+
+/* The thin line joining the dots. */
+.admin-log-item:not(:last-child)::after {
+  position: absolute;
+  top: 16px;
+  bottom: -18px;
+  left: 5px;
+  width: 2px;
+  background: var(--line);
+  content: "";
+}
+
+.admin-log-dot {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.admin-log-item.is-approve .admin-log-dot { background: #4f9d5d; }
+.admin-log-item.is-reject .admin-log-dot { background: var(--coral); }
+.admin-log-item.is-suspend .admin-log-dot { background: #b8afb2; }
+.admin-log-item.is-info .admin-log-dot { background: #7b8ca5; }
+
+.admin-log p {
+  margin: 0;
+  font-size: var(--text-body);
+}
+
+.admin-log time {
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+
+/* ---------- Short message after a decision ---------- */
+.admin-toast {
+  position: fixed;
+  z-index: 60;
+  bottom: 24px;
+  left: 50%;
+  max-width: calc(100% - 32px);
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--white);
+  font-size: var(--text-small);
+  box-shadow: 0 16px 40px rgba(41, 39, 42, 0.25);
+  transform: translateX(-50%);
+  animation: page-enter 300ms ease both;
+}
+
+/* ---------- Admin page on tablets and phones ---------- */
+@media (max-width: 900px) {
+  .admin-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* The review panel moves under the list. */
+  .admin-review {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-page {
+    padding-top: 32px;
+  }
+
+  .admin-tabs {
+    overflow-x: auto;
+  }
+
+  .admin-tab {
+    white-space: nowrap;
+  }
+
+  .admin-request {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .admin-request-side {
+    grid-column: 2;
+    justify-items: start;
+  }
+
+  .admin-flags {
+    justify-content: flex-start;
+  }
+
+  .admin-panel {
+    padding: 20px;
+  }
+
+  /* Staff table becomes stacked cards. */
+  .admin-row-head {
+    display: none;
+  }
+
+  .admin-row {
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+  }
+
+  .admin-row > span:nth-child(2),
+  .admin-row > span:nth-child(3) {
+    grid-column: 1;
+    color: var(--muted);
+  }
+
+  .admin-row-action {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
 
 /* =====================================================================
    9. "COMING SOON" PAGE
