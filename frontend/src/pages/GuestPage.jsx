@@ -1,7 +1,7 @@
 /* =====================================================================
-   BurnCare 
+   BurnCare — pages/GuestPage.jsx
    ---------------------------------------------------------------------
-   The Guest assessment page no account needed.
+   The Guest assessment page (address: /guest). No account needed.
 
    The page has THREE screens, shown one after another:
      1. Emergency check — 3 quick safety questions on their own page.
@@ -12,6 +12,10 @@
      3. Report — a paper-style report with a unique ID, all the answers
         and the photo, with the BBA decision at the top.
 
+   When "Assess case" is pressed, the answers and the photo are sent to
+   the Flask backend (POST /api/assessments). Flask saves them in the
+   database, works out the BBA decision and sends back the report.
+
    The questions follow the British Burn Association (BBA) referral
    thresholds (see the "BurnCare Assessment Form Questions" document).
    ===================================================================== */
@@ -21,6 +25,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { prefersReducedMotion } from "../components/animations.jsx";
 import { Chevron } from "../components/Chevron.jsx";
+import { api } from "../api.js";
 
 /* ---------------------------------------------------------------------
    QUESTIONS AND ANSWER CHOICES
@@ -62,15 +67,6 @@ const AGE_GROUPS = [
   ADULT, //            adult — Lund and Browder adult
 ];
 
-// BBA burn-size limits (TBSA %): a burn this big or bigger goes to a burn unit.
-const TBSA_LIMIT = { child: 2, adult: 3 };
-
-// Body areas that BBA sends to a burn unit at ANY size (from the body map).
-const SPECIAL_AREAS = ["Face", "Hands", "Feet", "Genitals", "Perineum"];
-
-// Below this AI confidence, the AI result counts as one level deeper (safer).
-const MIN_AI_CONFIDENCE = 0.6;
-
 const BURN_CAUSES = [
   "Hot liquid or steam",
   "Fire or flame",
@@ -82,9 +78,6 @@ const BURN_CAUSES = [
   "Sun",
   "Other",
 ];
-
-// Causes that BBA says should go to a burn unit at ANY size.
-const BURN_UNIT_CAUSES = ["Electricity", "Chemical", "Friction", "Cold injury (frostbite)"];
 
 const CONDITIONS = [
   "Diabetes",
@@ -110,15 +103,6 @@ const EMPTY_FORM = {
   childUnwell: "", // only asked when the patient is a child
 };
 
-// Results that come from the body map and the AI photo check.
-// They are empty for now because those parts are not built yet.
-// TODO (backend): fill these from the body map and the Flask AI API.
-const EMPTY_ANALYSIS = {
-  tbsa: null, // burn size in %, e.g. 2.5
-  burnedAreas: [], // body areas marked on the map, e.g. ["Hands", "Chest"]
-  depth: null, // "superficial", "partial" or "full" (from the AI)
-  confidence: null, // how sure the AI is, from 0 to 1
-};
 
 /* ---------------------------------------------------------------------
    SMALL HELPERS
@@ -131,103 +115,11 @@ const isChild = (age) => age !== "" && age !== ADULT;
 const hasEmergency = (emergency) =>
   Object.values(emergency).some((value) => EMERGENCY_ANSWERS.includes(value));
 
-// Makes a unique report number, e.g. "BC-261020-7K4QX".
-function makeReportId() {
-  const now = new Date();
-  const date = [now.getFullYear() % 100, now.getMonth() + 1, now.getDate()]
-    .map((n) => String(n).padStart(2, "0"))
-    .join("");
-  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O or 1/I (easy to misread)
-  const random = new Uint32Array(5);
-  crypto.getRandomValues(random);
-  const code = Array.from(random, (n) => letters[n % letters.length]).join("");
-  return `BC-${date}-${code}`;
-}
-
-// The AI depth, made safer: if the AI is not sure enough, use the next
-// deeper level ("superficial" → "partial" → "full").
-function safeDepth(depth, confidence) {
-  if (!depth) return null; // no AI result yet
-  if (confidence !== null && confidence < MIN_AI_CONFIDENCE) {
-    if (depth === "superficial") return "partial";
-    if (depth === "partial") return "full";
-  }
-  return depth;
-}
-
 /* ---------------------------------------------------------------------
-   THE BBA DECISION
-   Combines 3 things automatically:
-     1. the answers (emergency check + case questions)
-     2. the body map (burn size in % = TBSA, and which areas are burned)
-     3. the AI photo check (burn depth)
-   and returns one of 3 results, plus the reasons for it:
-     "burn-unit" = Treat at a burn unit
-     "local"     = Treat locally
-     "none"      = No treatment needed
-   ("pending" is only used while the body map or AI are not connected.)
+   THE BBA DECISION and the report number are now worked out by the
+   Flask backend (backend/referral.py and backend/assessments.py), so the
+   saved result can be trusted. This page only shows what Flask returns.
    --------------------------------------------------------------------- */
-function decideResult(emergency, form, analysis) {
-  const reasons = []; // every BBA rule that matches is added here
-  const depth = safeDepth(analysis.depth, analysis.confidence);
-
-  // ----- Rules from the ANSWERS -----
-  if (hasEmergency(emergency)) {
-    reasons.push("Possible breathing injury or emergency sign (emergency check)");
-  }
-  if (BURN_UNIT_CAUSES.includes(form.cause)) {
-    reasons.push(`${form.cause} burns need a burn unit at any size`);
-  }
-  if (EMERGENCY_ANSWERS.includes(form.circumferential)) {
-    reasons.push("The burn may go all the way around a body part");
-  }
-  const conditions = form.conditions.filter((item) => item !== "None");
-  if (conditions.length) {
-    reasons.push(`Long-term condition that could slow healing (${conditions.join(", ")})`);
-  }
-  if (form.notHealed === "Yes") {
-    reasons.push("The burn has not healed after 2 weeks");
-  }
-  if (isChild(form.age) && EMERGENCY_ANSWERS.includes(form.childUnwell)) {
-    reasons.push("A child with a burn who seems unwell or has a fever");
-  }
-
-  // ----- Rule from the PHOTO (AI depth) -----
-  if (depth === "full") {
-    reasons.push("Full-thickness (deep) burn seen in the photo");
-  }
-
-  // ----- Rules from the BODY MAP -----
-  // Only blistered or deeper burns count, so these rules are skipped when
-  // the AI says the burn is superficial (red skin only).
-  const blisteredOrDeeper = depth === "partial" || depth === "full";
-  const limit = isChild(form.age) ? TBSA_LIMIT.child : TBSA_LIMIT.adult;
-  if (analysis.tbsa !== null && depth !== "superficial" && analysis.tbsa >= limit) {
-    reasons.push(`Burn size ${analysis.tbsa}% is at or above the ${limit}% limit for ${isChild(form.age) ? "a child" : "an adult"}`);
-  }
-  const special = analysis.burnedAreas.filter((area) => SPECIAL_AREAS.includes(area));
-  if (special.length && blisteredOrDeeper) {
-    reasons.push(`Blistered or deeper burn on a special area (${special.join(", ")})`);
-  }
-
-  // ----- The result -----
-  // 1) Any BBA rule matched → Treat at a burn unit.
-  if (reasons.length) return { decision: "burn-unit", reasons };
-
-  // 2) Body map or AI not ready yet → we cannot choose between the other two.
-  if (analysis.tbsa === null || depth === null) return { decision: "pending", reasons };
-
-  // 3) Red skin only, no rule matched → No treatment needed.
-  if (depth === "superficial") {
-    return { decision: "none", reasons: ["Red skin only (no blisters) and no BBA referral reason"] };
-  }
-
-  // 4) Blisters, but small and no rule matched → Treat locally.
-  return {
-    decision: "local",
-    reasons: [`Blistered burn under the ${limit}% limit, not on a special area, and no other BBA referral reason`],
-  };
-}
 
 // How each decision is shown at the top of the report.
 const DECISIONS = {
@@ -266,6 +158,8 @@ function GuestPage() {
   const [showCall, setShowCall] = useState(false); // "Call 997" pop-up
   const [report, setReport] = useState(null); // the finished report
   const [dragging, setDragging] = useState(false); // photo dragged over box?
+  const [saving, setSaving] = useState(false); // waiting for the server?
+  const [saveError, setSaveError] = useState(""); // message if saving failed
   const fileInputRef = useRef(null);
 
   const child = isChild(form.age);
@@ -398,25 +292,37 @@ function GuestPage() {
     if (checkScreen()) goToScreen("form", "slide-forward");
   };
 
-  // "Assess case" on the form.
-  const handleSubmit = (event) => {
+  // "Assess case" on the form: send everything to Flask, show the report.
+  const handleSubmit = async (event) => {
     event.preventDefault(); // stop the page from reloading
-    if (!checkScreen()) return;
+    if (!checkScreen() || saving) return;
 
-    // TODO (backend): send the photo to the Flask API here. It will return
-    // the AI depth and confidence; the body map will give the TBSA and the
-    // burned areas. Put them in "analysis" and the decision updates itself.
-    const analysis = EMPTY_ANALYSIS;
+    // The photo and the answers go together in one "multipart form".
+    const upload = new FormData();
+    upload.append("data", JSON.stringify({ emergency, form }));
+    upload.append("photo", photo);
 
-    setReport({
-      id: makeReportId(),
-      createdAt: new Date(),
-      emergency,
-      form,
-      photoUrl,
-      result: decideResult(emergency, form, analysis),
-    });
-    goToScreen("report", "slide-forward");
+    setSaving(true);
+    setSaveError("");
+    try {
+      // Flask saves the assessment and returns the finished report:
+      // its number, the answers, and the BBA decision with its reasons.
+      const { report: saved } = await api("/api/assessments", { method: "POST", form: upload });
+      setReport({
+        id: saved.id,
+        createdAt: new Date(saved.createdAt),
+        emergency: saved.emergency,
+        form: saved.form,
+        photoUrl, // the photo preview already in the browser
+        assessedBy: saved.assessedBy, // the account's name, or "Guest"
+        result: saved.result,
+      });
+      goToScreen("report", "slide-forward");
+    } catch (problem) {
+      setSaveError(problem.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Clear everything so the user can start a new case.
@@ -697,10 +603,16 @@ function GuestPage() {
 
             {/* ===== Assess case button ===== */}
             <div className="guest-submit">
-              <button type="submit" className="button button-primary button-wide">
-                Assess case
+              {/* Shown if the server could not save the assessment. */}
+              {saveError && (
+                <p className="form-error" role="alert">
+                  {saveError}
+                </p>
+              )}
+              <button type="submit" className="button button-primary button-wide" disabled={saving}>
+                {saving ? "Assessing…" : "Assess case"}
               </button>
-              <p>Guest submissions are processed without being stored.</p>
+              <p>Your answers and photo are saved securely with your report number.</p>
             </div>
           </form>
         )}
@@ -713,7 +625,7 @@ function GuestPage() {
    THE REPORT (looks like a sheet of paper)
    ===================================================================== */
 function Report({ report }) {
-  const { id, createdAt, emergency, form, photoUrl, result } = report;
+  const { id, createdAt, emergency, form, photoUrl, result, assessedBy } = report;
   const decision = DECISIONS[result.decision];
   const emergencyFlag = hasEmergency(emergency);
 
@@ -752,7 +664,7 @@ function Report({ report }) {
           </div>
           <div>
             <dt>Assessed by</dt>
-            <dd>Guest</dd>
+            <dd>{assessedBy || "Guest"}</dd>
           </div>
         </dl>
       </header>
