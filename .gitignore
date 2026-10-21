@@ -1,5 +1,5 @@
-   __pycache__/
-   *.pyc
-   .env
-   venv/
-   node_modules/
+__pycache__/
+*.pyc
+.env
+venv/
+node_modules/

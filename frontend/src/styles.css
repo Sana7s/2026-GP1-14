@@ -2649,6 +2649,322 @@ main {
   line-height: 1.7;
 }
 
+/* =====================================================================
+   10. LOG IN PAGE
+ 
+   ===================================================================== */
+
+.login-page {
+  min-height: calc(100vh - var(--nav-height) - 120px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px var(--gutter);
+  background: linear-gradient(180deg, var(--blush-soft) 0, var(--blush) 100%);
+}
+
+/* The white card rises in when the page opens. */
+.login-card {
+  width: 100%;
+  max-width: 860px;
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  overflow: hidden;
+  border-radius: var(--card-radius);
+  background: var(--white);
+  box-shadow: var(--lift-shadow);
+  animation: rise-in 700ms var(--ease-out) both;
+}
+
+/* ---------- Coral panel with the logo ---------- */
+.login-brand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 32px;
+  overflow: hidden;
+  background: linear-gradient(160deg, var(--coral) 0%, var(--rose) 100%);
+  color: var(--white);
+  text-align: center;
+}
+
+/* Holds the logo and its sparks. */
+.login-logo-wrap {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  display: grid;
+  place-items: center;
+}
+
+/* Soft glow behind the logo that slowly "breathes". */
+.login-logo-wrap::before {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3), transparent 68%);
+  animation: glow-breathe 4s ease-in-out infinite;
+  content: "";
+}
+
+/* The logo floats gently up and down. */
+.login-logo {
+  position: relative;
+  z-index: 2;
+  width: 104px;
+  height: auto;
+  filter: drop-shadow(0 10px 18px rgba(100, 35, 40, 0.3));
+  animation: gentle-float 5s ease-in-out infinite;
+}
+
+/* Embers: start near the bottom of the logo, float up and fade out. */
+.login-spark {
+  position: absolute;
+  z-index: 1;
+  bottom: 18%;
+  left: var(--x);
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: #fff3e8;
+  box-shadow: 0 0 6px 2px rgba(255, 214, 170, 0.7);
+  opacity: 0;
+  animation: spark-rise var(--time) ease-out var(--delay) infinite;
+}
+
+/* Network dots: blink softly around the logo. */
+.login-twinkle {
+  position: absolute;
+  z-index: 1;
+  top: var(--y);
+  left: var(--x);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+  animation: twinkle 2.6s ease-in-out var(--delay) infinite;
+}
+
+.login-brand-name {
+  position: relative;
+  margin: 6px 0 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.login-brand-text {
+  position: relative;
+  max-width: 240px;
+  margin: 0;
+  font-size: var(--text-body);
+  line-height: 1.5;
+  opacity: 0.9;
+}
+
+/* ---------- Form side ---------- */
+.login-body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 44px 44px 36px;
+}
+
+/* Each part rises in one after another. */
+.login-body > * {
+  animation: rise-in 600ms var(--ease-out) both;
+}
+
+.login-body > :nth-child(1) { animation-delay: 150ms; }
+.login-body > :nth-child(2) { animation-delay: 220ms; }
+.login-body > :nth-child(3) { animation-delay: 290ms; }
+.login-body > :nth-child(4) { animation-delay: 360ms; }
+
+.login-header h1 {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.login-subtitle {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: var(--text-body);
+}
+
+/* ---------- Patient / Healthcare Staff switch ----------
+   Same look as the Yes / No switch on the Guest page. */
+.login-roles {
+  position: relative;
+  height: 48px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--blush-soft);
+}
+
+/* The coral block that slides to the chosen role. */
+.login-roles-slider {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 9px;
+  background: var(--coral);
+  box-shadow: 0 4px 12px rgba(230, 83, 89, 0.25);
+  transform: translateX(calc(var(--index, 0) * 100%));
+  transition: transform 350ms var(--ease-out);
+}
+
+.login-role {
+  position: relative; /* sits above the slider */
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 250ms ease;
+}
+
+.login-role:hover {
+  color: var(--rose);
+}
+
+.login-role.is-active {
+  color: var(--white);
+}
+
+/* ---------- Form ---------- */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Field with a problem: small shake (red ring comes from the Register styles). */
+.login-field.is-missing input {
+  animation: shake 400ms ease;
+}
+
+.login-forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -10px;
+}
+
+.login-forgot {
+  color: var(--rose);
+  font-size: var(--text-small);
+  text-decoration: none;
+}
+
+.login-forgot:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Message from the server (wrong password, server off...). */
+.login-server-message {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--pink);
+  border-radius: var(--button-radius);
+  background: var(--blush);
+  color: var(--rose);
+  font-size: var(--text-small);
+  animation: rise-in 300ms var(--ease-out) both;
+}
+
+/* Log in button: the site's coral .button, full width. */
+.login-submit {
+  width: 100%;
+}
+
+.login-submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.login-signup {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+  text-align: center;
+}
+
+.login-signup a {
+  color: var(--rose);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-signup a:hover {
+  text-decoration: underline;
+}
+
+/* Phones: coral panel on top with a curved bottom edge. */
+@media (max-width: 720px) {
+  .login-card {
+    max-width: 440px;
+    grid-template-columns: 1fr;
+  }
+
+  .login-brand {
+    padding: 28px 24px 48px;
+    border-radius: 0 0 50% 50% / 0 0 22% 22%;
+  }
+
+  .login-brand-text {
+    display: none;
+  }
+
+  .login-logo-wrap {
+    width: 110px;
+    height: 110px;
+  }
+
+  .login-logo {
+    width: 76px;
+  }
+
+  .login-body {
+    padding: 28px 24px 32px;
+  }
+
+  .login-header {
+    text-align: center;
+  }
+}
+/* Eye icon button in the password box. */
+.login-input .input-action {
+  display: grid;
+  place-items: center;
+  padding: 6px;
+}
+
+/* Ember floats up, grows faint and disappears. */
+@keyframes spark-rise {
+  0% { opacity: 0; transform: translate(0, 0) scale(1); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(6px, -95px) scale(0.4); }
+}
+
+/* Dot fades in and out. */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
 
 /* =====================================================================
    10. FOOTER
@@ -2986,4 +3302,179 @@ main {
     transform: none;
     opacity: 1;
   }
+}
+
+/* =====================================================================
+   15. Forgot password page
+   for when the user forgets password in login page
+   ===================================================================== */
+
+.forgot-intro {
+  margin: 0 0 24px;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  line-height: 1.6;
+}
+
+/* The email the code was sent to, in dark bold text. */
+.forgot-email {
+  color: var(--ink);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* Message from the server (e.g. not connected yet). */
+.forgot-server-message {
+  margin: 24px 0 0;
+  padding: 12px 16px;
+  border: 1px solid var(--pink);
+  border-radius: var(--button-radius);
+  background: var(--blush);
+  color: var(--rose);
+  font-size: var(--text-small);
+  animation: rise-in 300ms var(--ease-out) both;
+}
+
+/* ---- Six code boxes ---- */
+.code-boxes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.code-box {
+  width: 100%;
+  height: 60px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  caret-color: var(--coral);
+  /* Boxes pop in one after another when the step opens. */
+  animation: rise-in 500ms var(--ease-out) both;
+  animation-delay: calc(120ms + var(--i) * 50ms);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.code-box:hover {
+  border-color: var(--pink);
+}
+
+.code-box:focus {
+  border-color: var(--coral);
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(230, 83, 89, 0.12);
+}
+
+/* A box with a digit gets a soft pink fill and a tiny bounce. */
+.code-box.is-filled {
+  border-color: var(--coral);
+  background: var(--blush-soft);
+  transform: translateY(-2px);
+}
+
+.code-box:disabled {
+  opacity: 0.6;
+}
+
+/* Wrong code: red boxes and a shake. */
+.code-boxes.is-missing .code-box {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 4px rgba(217, 67, 77, 0.1);
+}
+
+.code-boxes.is-missing {
+  animation: shake 500ms ease;
+}
+
+.forgot-code-error {
+  margin-top: 12px;
+  text-align: center;
+}
+
+/* "resend code" link inside the sentence under the button. */
+.forgot-resend {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--rose);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.forgot-resend:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.forgot-resend:disabled {
+  color: var(--muted);
+  font-weight: 500;
+  cursor: default;
+}
+
+/* Eye icon button in the password box. */
+.input-eye {
+  display: grid;
+  place-items: center;
+  padding: 6px;
+}
+
+/* Title on the "Password updated" screen. */
+.forgot-done h1 {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+/* Phones: slightly smaller code boxes. */
+@media (max-width: 420px) {
+  .code-boxes {
+    gap: 6px;
+  }
+
+  .code-box {
+    height: 52px;
+    font-size: 20px;
+  }
+}
+
+
+/* "Test mode" note (only shown while TEST_MODE is on). */
+.forgot-test-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: -8px 0 24px;
+  padding: 12px 14px;
+  border: 1px dashed var(--coral);
+  border-radius: var(--button-radius);
+  background: var(--blush-soft);
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  line-height: 1.55;
+}
+
+.forgot-test-badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--coral);
+  color: var(--white);
+  font-size: var(--text-tiny);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.test-code {
+  color: var(--rose);
+  letter-spacing: 0.12em;
 }

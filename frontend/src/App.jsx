@@ -19,6 +19,8 @@ import AboutPage from "./pages/AboutPage.jsx";
 import GuestPage from "./pages/GuestPage.jsx";
 import { RegisterChoicePage, RegisterPage } from "./pages/RegisterPages.jsx";
 import ComingSoonPage from "./pages/ComingSoonPage.jsx";
+import LoginPage from "./pages/LoginPage.jsx";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 
 /* =====================================================================
    2. APP — the starting point of the website
@@ -61,7 +63,8 @@ function App() {
         <Route path="/register" element={<RegisterChoicePage />} />
         <Route path="/register/patient" element={<RegisterPage role="patient" />} />
         <Route path="/register/staff" element={<RegisterPage role="staff" />} />
-        <Route path="/login" element={<ComingSoonPage title="Log in" />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         {/* "*" means "any other address" — shows a not-found page. */}
         <Route path="*" element={<ComingSoonPage title="Page not found" />} />
       </Routes>
