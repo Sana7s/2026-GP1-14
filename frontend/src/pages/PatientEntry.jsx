@@ -270,7 +270,7 @@ function PatientEntry() {
       result,
     };
 
-    // حفظ التقرير في سجلات المريض للمشاهدة لاحقاً
+    
     const store = JSON.parse(localStorage.getItem("bc_assessments_store") || "[]");
     store.unshift(newReport);
     localStorage.setItem("bc_assessments_store", JSON.stringify(store));
