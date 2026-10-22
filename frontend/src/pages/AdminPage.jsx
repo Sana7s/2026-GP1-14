@@ -1,8 +1,8 @@
 /* =====================================================================
-   BurnCare 
+   BurnCare — pages/AdminPage.jsx
    ---------------------------------------------------------------------
-   The Admin page 
-   Only the admin can open it. 
+   The Admin page (address: /admin).
+   Only the admin can open it. Here the admin:
      1. Reviews registration requests from healthcare staff and approves
         or rejects them (staff cannot use BurnCare until approved).
      2. Manages approved staff (search, suspend or reactivate access).
@@ -10,42 +10,19 @@
    For each request the admin can Approve, Request changes (to the
    SCFHS number, name or role they entered), or Reject with a reason.
 
-   NOTE: the data below is SAMPLE data so the page can be seen and tested.
-   TODO (backend): load the requests, staff and log from the Flask API,
-   send each decision to Flask, and make sure only admins can open /admin.
+   The data comes from the Flask backend (admin.py) through api.js:
+     GET  /api/admin/overview                       requests, staff and log
+     POST /api/admin/requests/<id>/approve          approve
+     POST /api/admin/requests/<id>/reject           reject with a reason
+     POST /api/admin/requests/<id>/request-changes  ask for changes
+     POST /api/admin/staff/<id>/suspend | reactivate
+   Flask only answers if the logged-in account is an admin; anyone else
+   sees an "Admins only" message with a link to the Login page.
    ===================================================================== */
 
-import { useMemo, useState } from "react";
-
-/* =====================================================================
-   SAMPLE DATA — replace with data from the Flask API later
-   ===================================================================== */
-
-// Staff who registered and are waiting for the admin.
-// "hoursWaiting" = how long ago they sent the request.
-const SAMPLE_REQUESTS = [
-  { id: "r1", name: "Dr. Khalid Al-Harbi", role: "Burn specialist", scfhs: "14RM0045821", phone: "+966 55 123 4567", email: "k.alharbi@example.com", hoursWaiting: 3 },
-  { id: "r2", name: "Noura Al-Qahtani", role: "Nurse", scfhs: "19RN0023317", phone: "+966 50 876 5432", email: "noura.q@example.com", hoursWaiting: 52 },
-  { id: "r3", name: "Faisal Al-Mutairi", role: "EMS staff (paramedic)", scfhs: "21RE0009934", phone: "+966 54 222 3344", email: "faisal.m@example.com", hoursWaiting: 20 },
-  { id: "r4", name: "Dr. Huda Al-Shehri", role: "Doctor", scfhs: "16RM0031207", phone: "+966 56 111 9080", email: "huda.s@example.com", hoursWaiting: 6 },
-  { id: "r5", name: "Omar Hassan", role: "Doctor", scfhs: "16RM0031207", phone: "+971 50 765 4321", email: "omar.h@example.com", hoursWaiting: 2 },
-  { id: "r6", name: "Maha Al-Dosari", role: "Other: Pharmacist", scfhs: "18RP0017745", phone: "+966 53 909 1212", email: "maha.d@example.com", hoursWaiting: 30 },
-];
-
-// Staff who are already approved.
-const SAMPLE_STAFF = [
-  { id: "s1", name: "Dr. Reem Al-Otaibi", role: "Burn specialist", scfhs: "11RM0012093", status: "Active", approved: "12 Oct 2026" },
-  { id: "s2", name: "Dr. Saad Al-Ghamdi", role: "Doctor", scfhs: "15RM0028810", status: "Active", approved: "14 Oct 2026" },
-  { id: "s3", name: "Lama Al-Zahrani", role: "Nurse", scfhs: "20RN0040021", status: "Active", approved: "15 Oct 2026" },
-  { id: "s4", name: "Turki Al-Shammari", role: "EMS staff (paramedic)", scfhs: "22RE0003310", status: "Suspended", approved: "9 Oct 2026" },
-];
-
-// Earlier decisions (newest first).
-const SAMPLE_LOG = [
-  { id: "l1", text: "Approved Lama Al-Zahrani (Nurse)", when: "15 Oct 2026, 10:24", type: "approve" },
-  { id: "l2", text: "Rejected Ali Saleh (Doctor) — SCFHS number not found", when: "14 Oct 2026, 16:02", type: "reject" },
-  { id: "l3", text: "Suspended Turki Al-Shammari — licence expired", when: "13 Oct 2026, 09:15", type: "suspend" },
-];
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { api } from "../api.js";
 
 /* =====================================================================
    SETTINGS
@@ -121,21 +98,15 @@ function matchesFilter(role, filter) {
   return role.startsWith(filter);
 }
 
-// The current date and time, written like "21 Oct 2026, 13:40".
-function nowText() {
-  const now = new Date();
-  const date = now.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  const time = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  return `${date}, ${time}`;
-}
-
 /* =====================================================================
    ADMIN PAGE
    ===================================================================== */
 function AdminPage() {
-  const [requests, setRequests] = useState(SAMPLE_REQUESTS); // waiting for a decision
-  const [staff, setStaff] = useState(SAMPLE_STAFF); // approved staff
-  const [log, setLog] = useState(SAMPLE_LOG); // activity log
+  const [requests, setRequests] = useState([]); // waiting for a decision
+  const [staff, setStaff] = useState([]); // approved and suspended staff
+  const [log, setLog] = useState([]); // activity log
+  const [loading, setLoading] = useState(true); // first load from the server
+  const [accessProblem, setAccessProblem] = useState(""); // not logged in as admin, or server off
   const [tab, setTab] = useState("requests"); // "requests", "staff" or "log"
   const [filter, setFilter] = useState("All"); // role filter for the requests
   const [selectedId, setSelectedId] = useState(null); // request being reviewed
@@ -193,57 +164,93 @@ function AdminPage() {
     }
   };
 
-  // Add a line to the top of the activity log.
-  const addLog = (text, type) => {
-    setLog((current) => [{ id: `l${Date.now()}`, text, when: nowText(), type }, ...current]);
+  // Load (or reload) everything from Flask.
+  const reload = useCallback(async () => {
+    try {
+      const data = await api("/api/admin/overview");
+      setRequests(data.requests);
+      setStaff(data.staff);
+      setLog(data.log);
+      setAccessProblem("");
+    } catch (problem) {
+      setAccessProblem(problem.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load the data once when the page opens.
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  // Send one decision to Flask, then reload the lists and show a message.
+  const decide = async (address, body, message) => {
+    try {
+      await api(address, { method: "POST", body: body || {} });
+      setSelectedId(null);
+      await reload();
+      showToast(message);
+    } catch (problem) {
+      showToast(problem.message);
+    }
   };
 
-  // Remove a request from the list once a decision is made.
-  const removeRequest = (id) => {
-    setRequests((current) => current.filter((r) => r.id !== id));
-    setSelectedId(null);
-  };
-
-  // APPROVE: the person becomes active staff and can log in.
-  // TODO (backend): send the approval to Flask and email the person.
-  const approve = (request) => {
-    setStaff((current) => [
-      { id: `s${Date.now()}`, name: request.name, role: request.role, scfhs: request.scfhs, status: "Active", approved: nowText().split(",")[0] },
-      ...current,
-    ]);
-    addLog(`Approved ${request.name} (${request.role})`, "approve");
-    removeRequest(request.id);
-    showToast(`${request.name} was approved and can now log in.`);
-  };
+  // APPROVE: the person becomes active staff and can use BurnCare.
+  const approve = (request) =>
+    decide(`/api/admin/requests/${request.id}/approve`, null, `${request.name} was approved and can now use BurnCare.`);
 
   // REJECT: the request is closed with a reason the person will see.
-  const reject = (request, reason, note) => {
-    const why = reason === "Other" && note ? note : reason;
-    addLog(`Rejected ${request.name} (${request.role}) — ${why}`, "reject");
-    removeRequest(request.id);
-    showToast(`${request.name}'s request was rejected.`);
-  };
+  const reject = (request, reason, note) =>
+    decide(`/api/admin/requests/${request.id}/reject`, { reason, note }, `${request.name}'s request was rejected.`);
 
-  // REQUEST CHANGES: the request stays in the list, marked with the
-  // fields the person must fix (e.g. "SCFHS number"). The person logs in,
-  // sees the instructions, corrects those fields and sends the request again.
-  // TODO (backend): save the chosen fields and the note, and email the person.
+  // REQUEST CHANGES: the request stays in the list, marked with the fields
+  // the person must change (e.g. "SCFHS number"). The person logs in, sees
+  // what to change, corrects it and sends the request again.
   const askForCorrection = (request, fields, note) => {
     const labels = fields.map((key) => CORRECTIONS.find((item) => item.key === key).label);
-    setRequests((current) =>
-      current.map((r) => (r.id === request.id ? { ...r, corrections: labels, correctionNote: note } : r))
+    return decide(
+      `/api/admin/requests/${request.id}/request-changes`,
+      { fields, note },
+      `Changes requested from ${request.name}: ${labels.join(", ")}.`
     );
-    addLog(`Requested changes from ${request.name}: ${labels.join(", ")}`, "info");
-    showToast(`Changes requested from ${request.name}: ${labels.join(", ")}.`);
   };
 
   // SUSPEND / REACTIVATE an approved staff member.
   const toggleSuspend = (person) => {
-    const nextStatus = person.status === "Active" ? "Suspended" : "Active";
-    setStaff((current) => current.map((s) => (s.id === person.id ? { ...s, status: nextStatus } : s)));
-    addLog(`${nextStatus === "Active" ? "Reactivated" : "Suspended"} ${person.name}`, nextStatus === "Active" ? "approve" : "suspend");
-    showToast(`${person.name} is now ${nextStatus.toLowerCase()}.`);
+    const action = person.status === "Active" ? "suspend" : "reactivate";
+    const word = action === "suspend" ? "suspended" : "active again";
+    return decide(`/api/admin/staff/${person.id}/${action}`, null, `${person.name} is now ${word}.`);
   };
+
+  // ---------- Loading, or not allowed ----------
+  if (loading) {
+    return (
+      <section className="admin-page">
+        <div className="admin-container">
+          <p className="admin-subtitle">Loading…</p>
+        </div>
+      </section>
+    );
+  }
+  if (accessProblem) {
+    return (
+      <section className="admin-page">
+        <div className="admin-container">
+          <div className="admin-empty">
+            <p>
+              <strong>Admins only.</strong> {accessProblem}
+            </p>
+            <p className="admin-empty-action">
+              <Link className="button button-primary" to="/login">
+                Log in as an admin
+              </Link>
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="admin-page">
