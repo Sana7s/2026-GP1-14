@@ -315,7 +315,7 @@ function PatientEntry() {
             </section>
 
             <div className="report-actions" style={{ marginTop: "32px" }}>
-              <Link className="button button-primary" to="/patient-history">
+              <Link className="button button-primary" to="/patient/reports">
                 View in Assessment History
               </Link>
               <button

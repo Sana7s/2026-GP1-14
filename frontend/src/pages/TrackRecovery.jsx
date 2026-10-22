@@ -3,13 +3,16 @@
    Recovery timeline with symptom check & BBA warning triggers.
    ===================================================================== */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 
 const PHOTO_TYPES = ["image/jpeg", "image/png"];
 const MAX_PHOTO_MB = 10;
 
 function TrackRecovery() {
-  const [entries, setEntries] = useState([]);
+  // Load the saved entries once, newest first.
+  const [entries, setEntries] = useState(() =>
+    JSON.parse(localStorage.getItem("bc_recovery_store") || "[]").sort((a, b) => b.date.localeCompare(a.date))
+  );
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [photo, setPhoto] = useState(null);
   const [photoUrl, setPhotoUrl] = useState("");
@@ -18,15 +21,6 @@ function TrackRecovery() {
   const [increasingRedness, setIncreasingRedness] = useState("No");
   const [problem, setProblem] = useState("");
   const fileInputRef = useRef(null);
-
-  const fetchTimeline = () => {
-    const local = JSON.parse(localStorage.getItem("bc_recovery_store") || "[]");
-    setEntries(local.sort((a, b) => b.date.localeCompare(a.date)));
-  };
-
-  useEffect(() => {
-    fetchTimeline();
-  }, []);
 
   const choosePhoto = (file) => {
     if (!file) return;
@@ -116,6 +110,7 @@ function TrackRecovery() {
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
+                    max={new Date().toISOString().slice(0, 10)} // no future dates
                     required
                   />
                 </div>
@@ -179,6 +174,14 @@ function TrackRecovery() {
                   ))}
                 </div>
               </div>
+
+              {/* Infection warning signs: tell the patient what to do right away. */}
+              {(hasFever === "Yes" || increasingRedness === "Yes") && (
+                <p className="field-error" role="alert">
+                  These can be signs of infection. Please contact your doctor or burn clinic today. If you feel
+                  very unwell, call 997.
+                </p>
+              )}
 
               <div className="field">
                 <label className="field-label" htmlFor="rec-notes">Observation Notes (optional)</label>
