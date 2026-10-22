@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  Navigate, // Sends the visitor on to another address
   Route, // Connects one web address (like "/about") to one page
   Routes, // Holds all the Route items and shows the matching one
 } from "react-router-dom";
@@ -92,6 +93,10 @@ function App() {
               <Route path="/register/staff" element={<RegisterPage role="staff" />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              {/* Old addresses of the patient pages → their new place under /patient */}
+              <Route path="/patient-entry" element={<Navigate to="/patient/assessment" replace />} />
+              <Route path="/patient-history" element={<Navigate to="/patient/reports" replace />} />
+              <Route path="/track-recovery" element={<Navigate to="/patient/recovery" replace />} />
               {/* "*" means "any other address" — shows a not-found page. */}
               <Route path="*" element={<ComingSoonPage title="Page not found" />} />
             </Routes>
