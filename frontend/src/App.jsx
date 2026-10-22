@@ -65,6 +65,9 @@ function App() {
         <Route path="/register/patient" element={<RegisterPage role="patient" />} />
         <Route path="/register/staff" element={<RegisterPage role="staff" />} />
         <Route path="/login" element={<ComingSoonPage title="Log in" />} />
+        <Route path="/patient-entry" element={<PatientEntry />} />
+        <Route path="/patient-history" element={<PatientHistory />} />
+        <Route path="/track-recovery" element={<TrackRecovery />} />
         {/* "*" means "any other address" — shows a not-found page. */}
         <Route path="*" element={<ComingSoonPage title="Page not found" />} />
       </Routes>
