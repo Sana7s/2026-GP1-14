@@ -1,125 +1,197 @@
 /* =====================================================================
    BurnCare — pages/GuestPage.jsx
    ---------------------------------------------------------------------
-   The Guest assessment page (address: /guest).
+   The Guest assessment page (address: /guest). No account needed.
+
+   The page has THREE screens, shown one after another:
+     1. Emergency check — 3 quick safety questions on their own page.
+        Any "Yes" (or "Not sure") opens an urgent message telling the
+        user to call 997 (a message only, it does not place a call).
+     2. Assessment form — the case questions, the body map (TBSA) and
+        the burn photo. Every question is required.
+     3. Report — a paper-style report with a unique ID, all the answers
+        and the photo, with the BBA decision at the top.
+
+   When "Assess case" is pressed, the answers and the photo are sent to
+   the Flask backend (POST /api/assessments). Flask saves them in the
+   database, works out the BBA decision and sends back the report.
+
+   The questions follow the British Burn Association (BBA) referral
+   thresholds (see the "BurnCare Assessment Form Questions" document).
    ===================================================================== */
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { prefersReducedMotion } from "../components/animations.jsx";
 import { Chevron } from "../components/Chevron.jsx";
+import { api } from "../api.js";
 
-/* =====================================================================
-   7. GUEST ASSESSMENT PAGE
-   Lets anyone start a burn assessment without an account, in 3 steps:
-     Step 1 — answer six clinical questions (all choices, no typing)
-     Step 2 — mark burned areas on a body map (TBSA, coming soon)
-     Step 3 — upload a photo of the burn
-   Every question and the photo are REQUIRED. If something is missing,
-   "Assess case" shows a pop-up naming ONE missing question at a time.
-   ===================================================================== */
+/* ---------------------------------------------------------------------
+   QUESTIONS AND ANSWER CHOICES
+   --------------------------------------------------------------------- */
 
-// Answer choices for each clinical question.
+// Screen 1: the emergency check (everyday words, one screen).
+const EMERGENCY_QUESTIONS = [
+  {
+    key: "breathing",
+    label: "Is the person struggling to breathe, or does their voice sound rough?",
+    options: ["Yes", "No", "Not sure"],
+  },
+  {
+    key: "smoke",
+    label: "Did the burn happen in a fire inside a room or car, or is there black soot around the nose or mouth?",
+    options: ["Yes", "No", "Not sure"],
+  },
+  {
+    key: "responsive",
+    label: "Is the person not awake, or not responding normally?",
+    options: ["Yes", "No"],
+  },
+];
+
+// Answers that count as an emergency ("Not sure" is treated as risky).
+const EMERGENCY_ANSWERS = ["Yes", "Not sure"];
+
+// Screen 2: answer choices for each case question.
+// Age groups follow the Lund and Browder chart, which BBA recommends for
+// measuring burn size, because children's body proportions change with
+// age. Each group also maps to BBA's child (under 16) or adult limit.
+const ADULT = "16 years or older";
 const AGE_GROUPS = [
-  "Under 1 year",
-  "1 – 4 years",
-  "5 – 9 years",
-  "10 – 14 years",
-  "15 – 17 years",
-  "18 – 29 years",
-  "30 – 44 years",
-  "45 – 59 years",
-  "60 – 74 years",
-  "75 years or older",
+  "Under 1 year", //   child — Lund and Browder age 0
+  "1 – 4 years", //    child — Lund and Browder age 1
+  "5 – 9 years", //    child — Lund and Browder age 5
+  "10 – 14 years", //  child — Lund and Browder age 10
+  "15 years", //       child — Lund and Browder age 15
+  ADULT, //            adult — Lund and Browder adult
 ];
 
 const BURN_CAUSES = [
-  "Flame or heat",
-  "Hot liquid",
+  "Hot liquid or steam",
+  "Fire or flame",
+  "Hot object",
+  "Electricity",
   "Chemical",
-  "Electrical",
-  "Radiation",
+  "Friction",
+  "Cold injury (frostbite)",
+  "Sun",
   "Other",
 ];
 
-const BURN_LOCATIONS = [
-  "Head or neck",
-  "Face",
-  "Chest",
-  "Abdomen",
-  "Back",
-  "Arm",
-  "Hand",
-  "Leg",
-  "Foot",
-  "Genital area",
-  "Major joint (shoulder, elbow, knee…)",
+const CONDITIONS = [
+  "Diabetes",
+  "Heart or blood vessel disease",
+  "Kidney disease",
+  "Weak immune system",
+  "Other",
+  "None",
 ];
-
-const INJURY_TIMES = [
-  "Less than 1 hour",
-  "1 to 6 hours",
-  "6 to 24 hours",
-  "24 to 48 hours",
-  "More than 48 hours",
-];
-
-// Pain level choices: 0, 1, 2 … 10.
-const PAIN_LEVELS = Array.from({ length: 11 }, (_, i) => i);
-
-// The list of required answers. "label" is the name shown in the
-// "missing answers" pop-up; "step" tells the visitor where to look.
-const REQUIRED_QUESTIONS = [
-  { key: "age", label: "Age group", step: 1 },
-  { key: "diabetes", label: "Diabetes", step: 1 },
-  { key: "pain", label: "Pain level", step: 1 },
-  { key: "cause", label: "Cause of the burn", step: 1 },
-  { key: "location", label: "Location of the burn", step: 1 },
-  { key: "time", label: "Time since injury", step: 1 },
-  { key: "photo", label: "Burn photo", step: 3 },
-];
-
-// The empty form: nothing is chosen until the visitor picks an answer.
-const EMPTY_FORM = {
-  age: "",
-  diabetes: "",
-  pain: "",
-  cause: "",
-  location: "",
-  time: "",
-};
 
 // Photo rules: JPG or PNG, up to 10 MB.
 const PHOTO_TYPES = ["image/jpeg", "image/png"];
 const MAX_PHOTO_MB = 10;
 
+// The empty answers: nothing is chosen until the user picks an answer.
+const EMPTY_EMERGENCY = { breathing: "", smoke: "", responsive: "" };
+const EMPTY_FORM = {
+  age: "",
+  cause: "",
+  circumferential: "",
+  conditions: [], // several can be chosen
+  notHealed: "", // burn older than 2 weeks and still not healed?
+  childUnwell: "", // only asked when the patient is a child
+};
+
+
+/* ---------------------------------------------------------------------
+   SMALL HELPERS
+   --------------------------------------------------------------------- */
+
+// Is the patient a child (under 16)? Every group except the last one.
+const isChild = (age) => age !== "" && age !== ADULT;
+
+// Did any emergency answer say "Yes" or "Not sure"?
+const hasEmergency = (emergency) =>
+  Object.values(emergency).some((value) => EMERGENCY_ANSWERS.includes(value));
+
+/* ---------------------------------------------------------------------
+   THE BBA DECISION and the report number are now worked out by the
+   Flask backend (backend/referral.py and backend/assessments.py), so the
+   saved result can be trusted. This page only shows what Flask returns.
+   --------------------------------------------------------------------- */
+
+// How each decision is shown at the top of the report.
+const DECISIONS = {
+  "burn-unit": {
+    title: "Treat at a burn unit",
+    text: "Go to a hospital with a burn unit as soon as possible.",
+  },
+  local: {
+    title: "Treat locally",
+    text: "This burn can be treated at a nearby clinic or hospital.",
+  },
+  none: {
+    title: "No treatment needed",
+    text: "This burn only needs first aid at home. Watch for the warning signs below.",
+  },
+  pending: {
+    title: "Waiting for photo and body-map analysis",
+    text:
+      "None of your answers require a burn unit. The final result (No treatment needed, Treat locally or Treat at a burn unit) will appear here once the AI photo check and body map are connected.",
+  },
+};
+
+/* =====================================================================
+   THE PAGE
+   ===================================================================== */
 function GuestPage() {
-  const [form, setForm] = useState(EMPTY_FORM); // the visitor's answers
+  const [screen, setScreen] = useState("emergency"); // "emergency" | "form" | "report"
+  const [slide, setSlide] = useState(""); // slide animation direction
+  const [emergency, setEmergency] = useState(EMPTY_EMERGENCY); // screen 1 answers
+  const [form, setForm] = useState(EMPTY_FORM); // screen 2 answers
   const [photo, setPhoto] = useState(null); // the chosen photo file
   const [photoUrl, setPhotoUrl] = useState(""); // preview link for the photo
   const [photoProblem, setPhotoProblem] = useState(""); // wrong file type/size
   const [missing, setMissing] = useState([]); // keys of unanswered questions
-  const [showAlert, setShowAlert] = useState(false); // show the pop-up?
-  const [submitted, setSubmitted] = useState(false); // case accepted?
+  const [showAlert, setShowAlert] = useState(false); // "missing answer" pop-up
+  const [showCall, setShowCall] = useState(false); // "Call 997" pop-up
+  const [report, setReport] = useState(null); // the finished report
   const [dragging, setDragging] = useState(false); // photo dragged over box?
+  const [saving, setSaving] = useState(false); // waiting for the server?
+  const [saveError, setSaveError] = useState(""); // message if saving failed
   const fileInputRef = useRef(null);
 
+  const child = isChild(form.age);
+
+  // The required questions on the screen the user is looking at.
+  // "label" is shown in the pop-up; "check" says whether it is answered.
+  const required =
+    screen === "emergency"
+      ? EMERGENCY_QUESTIONS.map((q, i) => ({
+          key: q.key,
+          label: `Emergency question ${i + 1}`,
+          answered: emergency[q.key] !== "",
+        }))
+      : [
+          { key: "age", label: "Patient's age", answered: form.age !== "" },
+          { key: "cause", label: "Cause of the burn", answered: form.cause !== "" },
+          { key: "circumferential", label: "Burn all the way around", answered: form.circumferential !== "" },
+          { key: "conditions", label: "Long-term conditions", answered: form.conditions.length > 0 },
+          { key: "notHealed", label: "Burn not healed after 2 weeks", answered: form.notHealed !== "" },
+          // Only required when the patient is a child.
+          ...(child ? [{ key: "childUnwell", label: "Child unwell or feverish", answered: form.childUnwell !== "" }] : []),
+          { key: "photo", label: "Burn photo", answered: Boolean(photo) },
+        ];
+
   // The pop-up shows ONE missing question at a time: the first in the list.
-  const current = REQUIRED_QUESTIONS.find(({ key }) => missing.includes(key));
-
-  // Only the question shown in the pop-up is outlined in red.
+  const current = required.find(({ key }) => missing.includes(key));
   const isMissing = (key) => current?.key === key;
-
-  // Save one answer. If it was missing, remove it from the missing list.
-  const answer = (key, value) => {
-    setForm((old) => ({ ...old, [key]: value }));
-    setMissing((old) => old.filter((item) => item !== key));
-  };
 
   // When every missing answer has been filled, close the pop-up.
   useEffect(() => {
-    if (showAlert && missing.length === 0) setShowAlert(false);
-  }, [missing, showAlert]);
+    if (showAlert && !current) setShowAlert(false);
+  }, [current, showAlert]);
 
   // Free the memory used by an old photo preview.
   useEffect(() => {
@@ -127,6 +199,35 @@ function GuestPage() {
       if (photoUrl) URL.revokeObjectURL(photoUrl);
     };
   }, [photoUrl]);
+
+  // Remove a question from the missing list once it is answered.
+  const clearMissing = (key) => setMissing((old) => old.filter((item) => item !== key));
+
+  // Save one emergency answer. A risky answer opens the "Call 997" pop-up.
+  const answerEmergency = (key, value) => {
+    setEmergency((old) => ({ ...old, [key]: value }));
+    clearMissing(key);
+    if (EMERGENCY_ANSWERS.includes(value)) setShowCall(true);
+  };
+
+  // Save one case answer.
+  const answer = (key, value) => {
+    setForm((old) => ({ ...old, [key]: value }));
+    clearMissing(key);
+  };
+
+  // Conditions: several can be chosen. "None" clears the others, and
+  // choosing a condition clears "None".
+  const toggleCondition = (_, option) => {
+    setForm((old) => {
+      let list;
+      if (option === "None") list = old.conditions.includes("None") ? [] : ["None"];
+      else if (old.conditions.includes(option)) list = old.conditions.filter((c) => c !== option);
+      else list = [...old.conditions.filter((c) => c !== "None"), option];
+      return { ...old, conditions: list };
+    });
+    clearMissing("conditions");
+  };
 
   // Check a chosen photo (type and size), then save it and show a preview.
   const choosePhoto = (file) => {
@@ -142,7 +243,7 @@ function GuestPage() {
     setPhotoProblem("");
     setPhoto(file);
     setPhotoUrl(URL.createObjectURL(file));
-    setMissing((old) => old.filter((item) => item !== "photo"));
+    clearMissing("photo");
   };
 
   const removePhoto = () => {
@@ -155,90 +256,98 @@ function GuestPage() {
   const goToQuestion = (key) => {
     const box = document.getElementById(`field-${key}`);
     if (!box) return;
-    box.scrollIntoView({
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
-      block: "center",
-    });
+    box.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
     box.classList.remove("is-flashing");
     void box.offsetWidth; // restarts the shake animation
     box.classList.add("is-flashing");
   };
 
-  // Runs when "Assess case" is pressed.
-  const handleSubmit = (event) => {
-    event.preventDefault(); // stop the page from reloading
+  const scrollToTop = () =>
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
 
-    // Make the list of everything not answered yet (in page order).
-    const notAnswered = REQUIRED_QUESTIONS.filter(({ key }) =>
-      key === "photo" ? !photo : form[key] === ""
-    ).map(({ key }) => key);
+  // Shows a different screen with a slide animation.
+  const goToScreen = (next, direction) => {
+    setMissing([]);
+    setShowAlert(false);
+    setSlide(direction);
+    setScreen(next);
+    scrollToTop();
+  };
 
-    // Something is missing: show the pop-up and go to the first one.
+  // Checks the current screen. If something is missing, shows the pop-up
+  // and goes to the first missing question. Returns true when complete.
+  const checkScreen = () => {
+    const notAnswered = required.filter((q) => !q.answered).map((q) => q.key);
     if (notAnswered.length) {
       setMissing(notAnswered);
       setShowAlert(true);
       goToQuestion(notAnswered[0]);
-      return;
+      return false;
     }
-
-    // Everything is answered — the case can be assessed.
-    // TODO (backend): send `form` and `photo` to the Flask API here, then
-    // show the AI result (burn depth, urgency, confidence and heatmap).
-    setSubmitted(true);
-    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    return true;
   };
 
-  // Clear everything so the visitor can start a new case.
+  // "Next" on the emergency check.
+  const handleNext = () => {
+    if (checkScreen()) goToScreen("form", "slide-forward");
+  };
+
+  // "Assess case" on the form: send everything to Flask, show the report.
+  const handleSubmit = async (event) => {
+    event.preventDefault(); // stop the page from reloading
+    if (!checkScreen() || saving) return;
+
+    // The photo and the answers go together in one "multipart form".
+    const upload = new FormData();
+    upload.append("data", JSON.stringify({ emergency, form }));
+    upload.append("photo", photo);
+
+    setSaving(true);
+    setSaveError("");
+    try {
+      // Flask saves the assessment and returns the finished report:
+      // its number, the answers, and the BBA decision with its reasons.
+      const { report: saved } = await api("/api/assessments", { method: "POST", form: upload });
+      setReport({
+        id: saved.id,
+        createdAt: new Date(saved.createdAt),
+        emergency: saved.emergency,
+        form: saved.form,
+        photoUrl, // the photo preview already in the browser
+        assessedBy: saved.assessedBy, // the account's name, or "Guest"
+        result: saved.result,
+      });
+      goToScreen("report", "slide-forward");
+    } catch (problem) {
+      setSaveError(problem.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Clear everything so the user can start a new case.
   const startOver = () => {
+    setEmergency(EMPTY_EMERGENCY);
     setForm(EMPTY_FORM);
-    setMissing([]);
-    setShowAlert(false);
     removePhoto();
     setPhotoProblem("");
-    setSubmitted(false);
+    setReport(null);
+    goToScreen("emergency", "slide-back");
   };
 
-  // ---------- After a complete submission: confirmation screen ----------
-  if (submitted) {
+  /* ---------- Screen 3: the report ---------- */
+  if (screen === "report" && report) {
     return (
       <section className="guest-page">
-        <div className="guest-done">
-          <span className="guest-done-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="28" height="28">
-              <path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-          <h1>Your case details are complete.</h1>
-          <p className="guest-done-text">
-            The AI assessment will appear here once the BurnCare model is
-            connected. If the burn is severe or you are worried, contact a
-            healthcare professional now.
-          </p>
-
-          {/* A short summary of the visitor's answers. */}
-          <dl className="guest-summary">
-            <div><dt>Age group</dt><dd>{form.age}</dd></div>
-            <div><dt>Diabetes</dt><dd>{form.diabetes}</dd></div>
-            <div><dt>Pain level</dt><dd>{form.pain} / 10</dd></div>
-            <div><dt>Cause</dt><dd>{form.cause}</dd></div>
-            <div><dt>Location</dt><dd>{form.location}</dd></div>
-            <div><dt>Time since injury</dt><dd>{form.time}</dd></div>
-          </dl>
-
-          <div className="hero-actions">
-            <button type="button" className="button button-primary" onClick={startOver}>
-              Start a new case
-            </button>
-            <Link className="text-link" to="/register">
-              Create an account to save reports <Chevron />
-            </Link>
-          </div>
+        <div className={`guest-container report-container ${slide}`}>
+          <Report report={report} />
+          <ReportActions report={report} onStartOver={startOver} />
         </div>
       </section>
     );
   }
 
-  // ---------- The assessment form ----------
+  /* ---------- Screens 1 and 2 ---------- */
   return (
     <section className="guest-page">
       {/* ===== Pop-up: shows the next missing question (one at a time) ===== */}
@@ -248,14 +357,9 @@ function GuestPage() {
           <div className="missing-alert-body">
             <p className="missing-alert-title">Required question not answered</p>
             <p className="missing-alert-text">
-              Please answer <strong>{current.label}</strong> in Step {current.step}{" "}
-              before assessing the case.
+              Please answer <strong>{current.label}</strong> before you continue.
             </p>
-            <button
-              type="button"
-              className="missing-alert-go"
-              onClick={() => goToQuestion(current.key)}
-            >
+            <button type="button" className="missing-alert-go" onClick={() => goToQuestion(current.key)}>
               Go to question <Chevron />
             </button>
           </div>
@@ -270,15 +374,19 @@ function GuestPage() {
         </div>
       )}
 
+      {/* ===== Pop-up: "Call 997 now" ===== */}
+      {showCall && <CallPopup onClose={() => setShowCall(false)} />}
+
       <div className="guest-container">
         {/* ===== Page title (left) + emergency notice (right) ===== */}
         <header className="guest-header">
           <div>
             <h1>Guest Assessment</h1>
-            <p className="guest-subtitle">Assess a burn in three steps.</p>
+            <p className="guest-subtitle">
+              {screen === "emergency" ? "Part 1 of 2 · Emergency check" : "Part 2 of 2 · Burn details"}
+            </p>
           </div>
 
-          {/* Emergency notice: always visible at the top of the page. */}
           <aside className="emergency-note" aria-label="Emergency information">
             <span className="emergency-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="18" height="18">
@@ -288,189 +396,485 @@ function GuestPage() {
             </span>
             <p>
               <strong>In an emergency</strong>
-              If the burn is large, deep, on the face, or caused by electricity
-              or chemicals, seek medical care right away.
+              If the person gets worse at any time, call <span className="emergency-number">997</span> right away.
             </p>
           </aside>
         </header>
 
-        {/* noValidate: we show our own friendly messages instead of the browser's. */}
-        <form onSubmit={handleSubmit} noValidate>
-          {/* ===== STEP 1: clinical questions ===== */}
-          <section className="guest-step">
-            <StepHeader number={1} title="Clinical details" />
+        {screen === "emergency" ? (
+          /* ===================== SCREEN 1: EMERGENCY CHECK ===================== */
+          <div className={`guest-panel ${slide}`}>
+            <section className="guest-step">
+              <div className="guest-step-head">
+                <span className="guest-step-label">Before you start</span>
+                <h2 className="guest-step-title">Three quick safety questions</h2>
+              </div>
 
-            <div className="field-grid">
-              {/* Age group — drop-down list */}
-              <Question id="age" label="Age group" missing={isMissing("age")} htmlFor="guest-age">
-                <select
-                  id="guest-age"
-                  value={form.age}
-                  onChange={(e) => answer("age", e.target.value)}
-                  aria-invalid={isMissing("age")}
-                >
-                  <option value="" disabled hidden>Choose an age group</option>
-                  {AGE_GROUPS.map((option) => (
-                    <option key={option}>{option}</option>
-                  ))}
-                </select>
-              </Question>
+              <div className="field-grid">
+                {EMERGENCY_QUESTIONS.map((q) => (
+                  <Question key={q.key} id={q.key} label={q.label} missing={isMissing(q.key)}>
+                    <ChoiceButtons
+                      name={q.key}
+                      options={q.options}
+                      value={emergency[q.key]}
+                      onChoose={answerEmergency}
+                      variant="segmented"
+                    />
+                  </Question>
+                ))}
+              </div>
+            </section>
 
-              {/* Diabetes — Yes / No */}
-              <Question id="diabetes" label="Do you have diabetes?" missing={isMissing("diabetes")}>
-                <ChoiceButtons
-                  name="diabetes"
-                  options={["Yes", "No"]}
-                  value={form.diabetes}
-                  onChoose={answer}
-                  variant="segmented"
-                />
-              </Question>
-
-              {/* Location — drop-down list */}
-              <Question id="location" label="Where is the burn?" missing={isMissing("location")} htmlFor="guest-location">
-                <select
-                  id="guest-location"
-                  value={form.location}
-                  onChange={(e) => answer("location", e.target.value)}
-                  aria-invalid={isMissing("location")}
-                >
-                  <option value="" disabled hidden>Choose a body area</option>
-                  {BURN_LOCATIONS.map((option) => (
-                    <option key={option}>{option}</option>
-                  ))}
-                </select>
-              </Question>
-
-              {/* Time since injury — drop-down list */}
-              <Question id="time" label="When did it happen?" missing={isMissing("time")} htmlFor="guest-time">
-                <select
-                  id="guest-time"
-                  value={form.time}
-                  onChange={(e) => answer("time", e.target.value)}
-                  aria-invalid={isMissing("time")}
-                >
-                  <option value="" disabled hidden>Choose a time</option>
-                  {INJURY_TIMES.map((option) => (
-                    <option key={option}>{option}</option>
-                  ))}
-                </select>
-              </Question>
-
-              {/* Cause of the burn — choice buttons */}
-              <Question id="cause" label="What caused the burn?" missing={isMissing("cause")} wide>
-                <ChoiceButtons
-                  name="cause"
-                  options={BURN_CAUSES}
-                  value={form.cause}
-                  onChoose={answer}
-                  variant="chips"
-                />
-              </Question>
-
-              {/* Pain level — buttons from 0 to 10 */}
-              <Question id="pain" label="Pain level" missing={isMissing("pain")} wide>
-                <ChoiceButtons
-                  name="pain"
-                  options={PAIN_LEVELS}
-                  value={form.pain}
-                  onChoose={answer}
-                  variant="scale"
-                />
-                <div className="pain-scale" aria-hidden="true">
-                  <span>No pain</span>
-                  <span>Worst pain</span>
+            <div className="guest-submit">
+              <button type="button" className="button button-primary button-wide" onClick={handleNext}>
+                Next <Chevron />
+              </button>
+              <p>All questions are required.</p>
+            </div>
+          </div>
+        ) : (
+          /* ===================== SCREEN 2: ASSESSMENT FORM ===================== */
+          // noValidate: we show our own friendly messages instead of the browser's.
+          <form className={`guest-panel ${slide}`} onSubmit={handleSubmit} noValidate>
+            {/* ===== STEP 1: case questions ===== */}
+            <section className="guest-step">
+              <div className="guest-step-head guest-step-head-row">
+                <div>
+                  <span className="guest-step-label">Step 1</span>
+                  <h2 className="guest-step-title">About the burn</h2>
                 </div>
-              </Question>
-            </div>
-          </section>
+                {/* Back arrow → returns to the emergency check (answers are kept). */}
+                <button type="button" className="back-button" onClick={() => goToScreen("emergency", "slide-back")}>
+                  <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+                    <path d="M8 2L4 6l4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Back
+                </button>
+              </div>
 
-          {/* ===== STEP 2: TBSA body map (placeholder for now) ===== */}
-          <section className="guest-step">
-            <StepHeader number={2} title="Body map (TBSA)" badge="Coming soon" />
-            {/* PLACEHOLDER: the interactive TBSA body map will go here. */}
-            <div className="tbsa-placeholder" aria-hidden="true">
-              <BodyOutline />
-              <BodyOutline />
-              <p>Front and back body map</p>
-            </div>
-          </section>
+              <div className="field-grid">
+                {/* 1. Age — Lund and Browder age groups (under 16 = child for BBA) */}
+                <Question id="age" label="How old is the patient?" missing={isMissing("age")}>
+                  <ChoiceButtons name="age" options={AGE_GROUPS} value={form.age} onChoose={answer} variant="chips" />
+                </Question>
 
-          {/* ===== STEP 3: photo upload ===== */}
-          <section className="guest-step">
-            <StepHeader number={3} title="Burn photo" />
+                {/* 2. Cause of the burn — choice pills */}
+                <Question id="cause" label="What caused the burn?" missing={isMissing("cause")}>
+                  <ChoiceButtons name="cause" options={BURN_CAUSES} value={form.cause} onChoose={answer} variant="chips" />
+                </Question>
 
-            <div id="field-photo" className={`field${isMissing("photo") ? " is-missing" : ""}`}>
-              {photoUrl ? (
-                // A photo is chosen: show the preview with Change / Remove.
-                <div className="photo-preview">
-                  <img src={photoUrl} alt="Your uploaded burn photo" />
-                  <div className="photo-preview-bar">
-                    <span className="photo-name">{photo?.name}</span>
-                    <div className="photo-actions">
-                      <button type="button" className="text-link" onClick={() => fileInputRef.current?.click()}>
-                        Change
-                      </button>
-                      <button type="button" className="text-link" onClick={removePhoto}>
-                        Remove
-                      </button>
+                {/* 3. Circumferential — Yes / No / Not sure */}
+                <Question
+                  id="circumferential"
+                  label="Does the burn go all the way around an arm, leg, finger, neck or chest?"
+                  missing={isMissing("circumferential")}
+                >
+                  <ChoiceButtons
+                    name="circumferential"
+                    options={["Yes", "No", "Not sure"]}
+                    value={form.circumferential}
+                    onChoose={answer}
+                    variant="segmented"
+                  />
+                </Question>
+
+                {/* 4. Long-term conditions — several can be chosen */}
+                <Question
+                  id="conditions"
+                  label="Does the patient have a long-term condition that could slow healing?"
+                  hint="Choose all that apply."
+                  missing={isMissing("conditions")}
+                >
+                  <ChoiceButtons
+                    name="conditions"
+                    options={CONDITIONS}
+                    value={form.conditions}
+                    onChoose={toggleCondition}
+                    variant="chips"
+                    multiple
+                  />
+                </Question>
+
+                {/* 5. Not healed after 2 weeks (BBA: refer any burn not healed in 2 weeks) */}
+                <Question
+                  id="notHealed"
+                  label="Has the burn been there for more than 2 weeks without healing?"
+                  missing={isMissing("notHealed")}
+                >
+                  <ChoiceButtons name="notHealed" options={["Yes", "No"]} value={form.notHealed} onChoose={answer} variant="segmented" />
+                </Question>
+
+                {/* 6. Only for children (under 16) */}
+                {child && (
+                  <Question
+                    id="childUnwell"
+                    label="Does the child seem unwell or have a fever?"
+                    missing={isMissing("childUnwell")}
+                    appear
+                  >
+                    <ChoiceButtons
+                      name="childUnwell"
+                      options={["Yes", "No", "Not sure"]}
+                      value={form.childUnwell}
+                      onChoose={answer}
+                      variant="segmented"
+                    />
+                  </Question>
+                )}
+              </div>
+            </section>
+
+            {/* ===== STEP 2: TBSA body map (placeholder for now) ===== */}
+            <section className="guest-step">
+              <StepHeader number={2} title="Body map (TBSA)" badge="Coming soon" />
+              {/* PLACEHOLDER: the interactive Lund and Browder body map will go here. */}
+              <div className="tbsa-placeholder" aria-hidden="true">
+                <BodyOutline />
+                <BodyOutline />
+                <p>Click the burned areas on the front and back of the body</p>
+              </div>
+            </section>
+
+            {/* ===== STEP 3: photo upload ===== */}
+            <section className="guest-step">
+              <StepHeader number={3} title="Burn photo" />
+              <p className="guest-step-note">
+                Take the photo from above, about 30–50 cm away, in good light, after cooling and before any cream.
+              </p>
+
+              <div id="field-photo" className={`field${isMissing("photo") ? " is-missing" : ""}`}>
+                {photoUrl ? (
+                  // A photo is chosen: show the preview with Change / Remove.
+                  <div className="photo-preview">
+                    <img src={photoUrl} alt="Your uploaded burn photo" />
+                    <div className="photo-preview-bar">
+                      <span className="photo-name">{photo?.name}</span>
+                      <div className="photo-actions">
+                        <button type="button" className="text-link" onClick={() => fileInputRef.current?.click()}>
+                          Change
+                        </button>
+                        <button type="button" className="text-link" onClick={removePhoto}>
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (
-                // No photo yet: a box to click, or to drag a photo onto.
-                <label
-                  htmlFor="guest-photo"
-                  className={`dropzone${dragging ? " is-dragging" : ""}`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragging(true);
-                  }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragging(false);
-                    choosePhoto(e.dataTransfer.files?.[0]);
-                  }}
-                >
-                  <span className="dropzone-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="22" height="22">
-                      <path d="M12 16V4M7 9l5-5 5 5M5 20h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                  <span className="dropzone-title">Upload image here</span>
-                  <span className="dropzone-hint">JPG or PNG, up to {MAX_PHOTO_MB} MB</span>
-                </label>
-              )}
+                ) : (
+                  // No photo yet: a box to click, or to drag a photo onto.
+                  <label
+                    htmlFor="guest-photo"
+                    className={`dropzone${dragging ? " is-dragging" : ""}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragging(true);
+                    }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragging(false);
+                      choosePhoto(e.dataTransfer.files?.[0]);
+                    }}
+                  >
+                    <span className="dropzone-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="22" height="22">
+                        <path d="M12 16V4M7 9l5-5 5 5M5 20h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                    <span className="dropzone-title">
+                      Upload image here <span className="required-mark" aria-hidden="true">*</span>
+                    </span>
+                    <span className="dropzone-hint">JPG or PNG, up to {MAX_PHOTO_MB} MB</span>
+                  </label>
+                )}
 
-              {/* The real file picker (hidden; the box above opens it). */}
-              <input
-                ref={fileInputRef}
-                id="guest-photo"
-                className="visually-hidden"
-                type="file"
-                accept="image/jpeg,image/png"
-                onChange={(e) => choosePhoto(e.target.files?.[0])}
-              />
-              {photoProblem && <p className="field-error">{photoProblem}</p>}
-              {!photoProblem && isMissing("photo") && (
-                <p className="field-error">Please upload a photo of the burn.</p>
+                {/* The real file picker (hidden; the box above opens it). */}
+                <input
+                  ref={fileInputRef}
+                  id="guest-photo"
+                  className="visually-hidden"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  onChange={(e) => choosePhoto(e.target.files?.[0])}
+                />
+                {photoProblem && <p className="field-error">{photoProblem}</p>}
+                {!photoProblem && isMissing("photo") && <p className="field-error">Please upload a photo of the burn.</p>}
+              </div>
+            </section>
+
+            {/* ===== Assess case button ===== */}
+            <div className="guest-submit">
+              {/* Shown if the server could not save the assessment. */}
+              {saveError && (
+                <p className="form-error" role="alert">
+                  {saveError}
+                </p>
               )}
+              <button type="submit" className="button button-primary button-wide" disabled={saving}>
+                {saving ? "Assessing…" : "Assess case"}
+              </button>
+              <p>Your answers and photo are saved securely with your report number.</p>
             </div>
-          </section>
-
-          {/* ===== Assess case button ===== */}
-          <div className="guest-submit">
-            <button type="submit" className="button button-primary button-wide">
-              Assess case
-            </button>
-            <p>Guest submissions are processed without being stored.</p>
-          </div>
-        </form>
+          </form>
+        )}
       </div>
     </section>
   );
 }
+
+/* =====================================================================
+   THE REPORT (looks like a sheet of paper)
+   ===================================================================== */
+function Report({ report }) {
+  const { id, createdAt, emergency, form, photoUrl, result, assessedBy } = report;
+  const decision = DECISIONS[result.decision];
+  const emergencyFlag = hasEmergency(emergency);
+
+  // One row of the report: question on the left, answer on the right.
+  const rows = [
+    ["Patient's age", `${form.age} (${isChild(form.age) ? "child" : "adult"})`],
+    ["Cause of the burn", form.cause],
+    ["Goes all the way around a body part", form.circumferential],
+    ["Long-term conditions", form.conditions.join(", ")],
+    ["Not healed after 2 weeks", form.notHealed],
+    ...(isChild(form.age) ? [["Child unwell or feverish", form.childUnwell]] : []),
+  ];
+
+  return (
+    <article className="report-paper" aria-label="Burn assessment report">
+      {/* ----- Header: name, title, report number and date ----- */}
+      <header className="report-head">
+        <div className="report-brand">
+          <img src="/burncare-logo.png" alt="" className="report-logo" />
+          <div>
+            <p className="report-brand-name">BurnCare</p>
+            <h1 className="report-title">Burn Assessment Report</h1>
+          </div>
+        </div>
+        <dl className="report-meta">
+          <div>
+            <dt>Report ID</dt>
+            <dd className="report-id">{id}</dd>
+          </div>
+          <div>
+            <dt>Date</dt>
+            <dd>
+              {createdAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })},{" "}
+              {createdAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+            </dd>
+          </div>
+          <div>
+            <dt>Assessed by</dt>
+            <dd>{assessedBy || "Guest"}</dd>
+          </div>
+        </dl>
+      </header>
+
+      {/* ----- The decision, at the top ----- */}
+      <section className={`report-decision is-${result.decision}`}>
+        <p className="report-decision-label">Recommendation</p>
+        <h2>{decision.title}</h2>
+        <p>{decision.text}</p>
+        {result.reasons.length > 0 && (
+          <ul className="report-reasons">
+            {result.reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* ----- Emergency banner (only if the emergency check flagged it) ----- */}
+      {emergencyFlag && (
+        <p className="report-call">
+          <strong>Call 997 now.</strong> An answer in the emergency check suggests a possible emergency.
+        </p>
+      )}
+
+      {/* ----- Emergency check answers ----- */}
+      <ReportSection title="Emergency check">
+        <dl className="report-rows">
+          {EMERGENCY_QUESTIONS.map((q) => (
+            <div key={q.key}>
+              <dt>{q.label}</dt>
+              <dd className={EMERGENCY_ANSWERS.includes(emergency[q.key]) ? "is-flag" : ""}>{emergency[q.key]}</dd>
+            </div>
+          ))}
+        </dl>
+      </ReportSection>
+
+      {/* ----- Case details ----- */}
+      <ReportSection title="About the burn">
+        <dl className="report-rows">
+          {rows.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </ReportSection>
+
+      {/* ----- Burn size (TBSA) ----- */}
+      <ReportSection title="Burn size (TBSA)">
+        {/* TODO: show the TBSA %, the method and the marked body map here. */}
+        <p className="report-pending">The body map will be added soon.</p>
+      </ReportSection>
+
+      {/* ----- Burn photo ----- */}
+      <ReportSection title="Burn photo">
+        <div className="report-images">
+          <figure>
+            <img src={photoUrl} alt="Uploaded burn photo" />
+            <figcaption>Uploaded photo</figcaption>
+          </figure>
+
+          {/* LATER RELEASE: the AI heatmap next to the photo.
+              Remove the comment marks when the AI model is connected.
+          <figure>
+            <img src={report.heatmapUrl} alt="AI heatmap of the burn" />
+            <figcaption>AI heatmap (supporting information only)</figcaption>
+          </figure>
+          */}
+        </div>
+
+        {/* LATER RELEASE: the AI burn depth estimate.
+        <dl className="report-rows">
+          <div>
+            <dt>AI burn depth estimate</dt>
+            <dd>{report.aiDepth}</dd>
+          </div>
+        </dl>
+        */}
+      </ReportSection>
+
+      {/* ----- Disclaimer ----- */}
+      <footer className="report-foot">
+        BurnCare supports, but does not replace, a clinician's judgment or a burn unit consultation. Referral
+        rules follow the British Burn Association referral thresholds.
+      </footer>
+    </article>
+  );
+}
+
+// A titled section inside the report.
+function ReportSection({ title, children }) {
+  return (
+    <section className="report-section">
+      <h3>{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+// The buttons under the report.
+// Release 1: "Back to home" and "Start a new assessment" only.
+// "Download as PDF" and "Save to my account" are kept below as comments
+// for a later release.
+function ReportActions({ onStartOver }) {
+  /* LATER RELEASE: Download as PDF.
+     Opens the browser's print window, where the user picks "Save as PDF".
+     The print styles in styles.css print only the report paper.
+     (Add "report" back to the props above when you turn this on.)
+
+  const downloadPdf = () => {
+    const oldTitle = document.title;
+    document.title = `BurnCare-${report.id}`; // becomes the PDF file name
+    window.print();
+    document.title = oldTitle;
+  };
+  */
+
+  /* LATER RELEASE: Save to my account.
+     Keeps the answers for a moment so they can be saved after logging in.
+     TODO (backend): after login, send them to the API to save the report.
+
+  const keepForSaving = () => {
+    try {
+      const { photoUrl, ...data } = report; // the photo link can't be kept
+      sessionStorage.setItem("burncare-pending-report", JSON.stringify(data));
+    } catch {
+      // Storage can be blocked (e.g. private mode); saving is then skipped.
+    }
+  };
+  */
+
+  return (
+    <div className="report-actions">
+      {/* LATER RELEASE: the two buttons below.
+      <button type="button" className="button button-primary" onClick={downloadPdf}>
+        Download as PDF
+      </button>
+      <Link className="button button-outline" to="/login" onClick={keepForSaving}>
+        Save to my account
+      </Link>
+      */}
+
+      {/* Go back to the home page. Guest reports are not stored. */}
+      <Link className="button button-primary" to="/">
+        Back to home
+      </Link>
+
+      {/* Clear the answers and start again from the emergency check. */}
+      <button type="button" className="button button-outline" onClick={onStartOver}>
+        Start a new assessment
+      </button>
+
+      <p className="report-actions-note">This report is not saved when you leave this page.</p>
+    </div>
+  );
+}
+
+/* =====================================================================
+   THE "CALL 997" POP-UP
+   An urgent message only — it does not place a call.
+   ===================================================================== */
+function CallPopup({ onClose }) {
+  const closeRef = useRef(null);
+
+  // Put keyboard focus on the pop-up, and close it with the Esc key.
+  useEffect(() => {
+    closeRef.current?.focus();
+    const onKey = (event) => event.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // createPortal places the pop-up directly inside <body>, so it covers the
+  // whole screen (including the top bar) instead of only the page area.
+  return createPortal(
+    <div className="call-overlay" onClick={onClose}>
+      <div
+        className="call-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="call-title"
+        aria-describedby="call-text"
+        onClick={(e) => e.stopPropagation()} // clicks inside don't close it
+      >
+        {/* Round coral "!" warning icon */}
+        <span className="call-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="28" height="28">
+            <path d="M12 6v8M12 18v.01" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+          </svg>
+        </span>
+        <h2 id="call-title">Urgent: call 997 now</h2>
+        <p id="call-text">
+          Your answer suggests a possible emergency. Please call the Saudi Red Crescent on <strong>997</strong> right
+          away. You can keep filling in the assessment while you wait for help.
+        </p>
+        {/* Closes the message and returns to the questions. */}
+        <button ref={closeRef} type="button" className="button button-primary call-button" onClick={onClose}>
+          I understand, continue
+        </button>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/* =====================================================================
+   SMALL BUILDING BLOCKS
+   ===================================================================== */
 
 // The heading of each step: "Step X", the title, and an optional badge.
 function StepHeader({ number, title, badge }) {
@@ -483,38 +887,46 @@ function StepHeader({ number, title, badge }) {
   );
 }
 
-// One question box: the question text, the answer control (children),
-// and a red "required" message when it is missing.
-function Question({ id, label, missing, wide, htmlFor, children }) {
+// One question box: the question text, an optional hint, the answer
+// control (children), and a red "required" message when it is missing.
+function Question({ id, label, hint, missing, htmlFor, appear, children }) {
   const LabelTag = htmlFor ? "label" : "span";
   return (
     <div
       id={`field-${id}`}
-      className={`field${wide ? " field-wide" : ""}${missing ? " is-missing" : ""}`}
+      className={`field${missing ? " is-missing" : ""}${appear ? " field-appear" : ""}`}
       role={htmlFor ? undefined : "group"}
       aria-labelledby={htmlFor ? undefined : `label-${id}`}
     >
       <LabelTag className="field-label" id={`label-${id}`} htmlFor={htmlFor}>
-        {label} <span className="required-mark" aria-hidden="true">*</span>
+        <span>
+          {label} <span className="required-mark" aria-hidden="true">*</span>
+        </span>
       </LabelTag>
+      {hint && <p className="field-hint">{hint}</p>}
       {children}
       {missing && <p className="field-error">This question is required.</p>}
     </div>
   );
 }
 
-// A row of answer buttons where only one can be chosen.
-// variant: "segmented" (Yes/No switch), "scale" (0–10), or "chips" (pills).
-function ChoiceButtons({ name, options, value, onChoose, variant }) {
+// A row of answer buttons.
+// variant: "segmented" (Yes/No switch) or "chips" (pills).
+// multiple: several answers can be chosen (value is then a list).
+function ChoiceButtons({ name, options, value, onChoose, variant, multiple }) {
   return (
-    <div className={`choices choices-${variant}`} role="radiogroup">
+    <div
+      className={`choices choices-${variant}`}
+      role={multiple ? "group" : "radiogroup"}
+      style={variant === "segmented" ? { gridTemplateColumns: `repeat(${options.length}, 1fr)` } : undefined}
+    >
       {options.map((option) => {
-        const selected = value === option;
+        const selected = multiple ? value.includes(option) : value === option;
         return (
           <button
             type="button"
             key={option}
-            role="radio"
+            role={multiple ? "checkbox" : "radio"}
             aria-checked={selected}
             className={selected ? "is-selected" : ""}
             onClick={() => onChoose(name, option)}

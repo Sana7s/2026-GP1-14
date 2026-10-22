@@ -3,8 +3,8 @@
    ---------------------------------------------------------------------
    The starting point of the website. It loads the page text, then
    decides which page to show for each web address.
-
-  
+     /patient/...   patient pages (with the patient top bar)
+     everything else → public pages inside the normal site layout
    ===================================================================== */
 
 import { useEffect, useState } from "react";
@@ -17,6 +17,7 @@ import { SiteLayout } from "./components/Layout.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import AboutPage from "./pages/AboutPage.jsx";
 import GuestPage from "./pages/GuestPage.jsx";
+import AdminPage from "./pages/AdminPage.jsx";
 import { RegisterChoicePage, RegisterPage } from "./pages/RegisterPages.jsx";
 import ComingSoonPage from "./pages/ComingSoonPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
@@ -24,12 +25,12 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import PatientTopBar from "./components/PatientTopBar.jsx";
 import PatientHomePage from "./pages/PatientHomePage.jsx";
 import PatientProfilePage from "./pages/PatientProfilePage.jsx";
-import AdminPage from "./pages/AdminPage.jsx";
-
-
+import PatientEntry from "./pages/PatientEntry.jsx"; // assessment form
+import PatientHistory from "./pages/PatientHistory.jsx"; // saved reports
+import TrackRecovery from "./pages/TrackRecovery.jsx"; // recovery timeline
 
 /* =====================================================================
-   2. APP — the starting point of the website
+   APP — the starting point of the website
    ===================================================================== */
 function App() {
   // "content" holds the page text. It starts as DEFAULT_CONTENT.
@@ -64,14 +65,13 @@ function App() {
       {/* ===== Patient pages: show the top bar, then the page itself ===== */}
       <Route path="/patient" element={<PatientTopBar />}>
         <Route index element={<PatientHomePage />} />
-        <Route path="assessment" element={<ComingSoonPage title="New burn assessment" />} />
-        <Route path="reports" element={<ComingSoonPage title="My reports" />} />
+        <Route path="assessment" element={<PatientEntry />} />
+        <Route path="reports" element={<PatientHistory />} />
         <Route path="reports/:reportId" element={<ComingSoonPage title="Report" />} />
-        <Route path="recovery" element={<ComingSoonPage title="Recovery tracking" />} />
+        <Route path="recovery" element={<TrackRecovery />} />
         <Route path="chat" element={<ComingSoonPage title="Wound-care chat" />} />
         <Route path="first-aid" element={<ComingSoonPage title="First-aid guide" />} />
         <Route path="profile" element={<PatientProfilePage />} />
-        <Route path="/admin" element={<AdminPage />} />
         <Route path="change-password" element={<ComingSoonPage title="Change password" />} />
         <Route path="*" element={<ComingSoonPage title="Page not found" />} />
       </Route>
@@ -85,6 +85,7 @@ function App() {
               <Route path="/" element={<HomePage content={content} />} />
               <Route path="/about" element={<AboutPage content={content} />} />
               <Route path="/guest" element={<GuestPage />} />
+              <Route path="/admin" element={<AdminPage />} />
               {/* Register: first choose a role, then fill in that role's form. */}
               <Route path="/register" element={<RegisterChoicePage />} />
               <Route path="/register/patient" element={<RegisterPage role="patient" />} />

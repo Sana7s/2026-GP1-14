@@ -11,11 +11,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { prefersReducedMotion } from "../components/animations.jsx";
 import { Chevron } from "../components/Chevron.jsx";
+import { api } from "../api.js";
 
 /* =====================================================================
    8. REGISTER PAGES ("Create your account")
    /register          → choose a role (two large cards)
-   /register/staff    → one form (account info) → "Register"
+   /register/staff    → one form (account info + "What is your role?")
+                        → "Register"
    /register/patient  → two parts:
                             Part 1  Account info    → "Next"
                             Part 2  Medical profile → "Create account"
@@ -28,8 +30,47 @@ import { Chevron } from "../components/Chevron.jsx";
 // "to" is the address of that role's form page.
 const ACCOUNT_ROLES = [
   { value: "patient", title: "Patient", text: "Track my own cases", icon: "patient", to: "/register/patient" },
-  { value: "staff", title: "Healthcare Staff", text: "Enter cases, receive consultations", icon: "staff", to: "/register/staff" },
+  { value: "staff", title: "Healthcare Staff", text: "Assess cases and request consultations", icon: "staff", to: "/register/staff" },
 ];
+
+// The answers for "What is your role?" (healthcare staff only).
+const BURN_SPECIALIST = "Burn specialist";
+const STAFF_ROLES = ["Doctor", "Nurse", "EMS staff (paramedic)", BURN_SPECIALIST, "Other"];
+
+// Only burn specialists can open the Consultations page and answer
+// consultation requests from other staff. Every other role gets all the
+// other staff pages, but not Consultations.
+// Use this later (e.g. in the staff dashboard menu) to show or hide it:
+//   {canGiveConsultations(user.staffRole) && <Link to="/consultations">…</Link>}
+const canGiveConsultations = (staffRole) => staffRole === BURN_SPECIALIST;
+
+// Countries for the phone number drop-down list.
+//   code   → the country calling code shown in the list
+//   length → how many digits the mobile number has AFTER the code
+//   starts → the digits a mobile number can start with (after the code)
+//   example → shown as the placeholder in the phone box
+const COUNTRIES = [
+  { id: "SA", name: "Saudi Arabia", code: "+966", length: 9, starts: "5", example: "5X XXX XXXX" },
+  { id: "AE", name: "United Arab Emirates", code: "+971", length: 9, starts: "5", example: "5X XXX XXXX" },
+  { id: "KW", name: "Kuwait", code: "+965", length: 8, starts: "569", example: "XXXX XXXX" },
+  { id: "BH", name: "Bahrain", code: "+973", length: 8, starts: "36", example: "XXXX XXXX" },
+  { id: "QA", name: "Qatar", code: "+974", length: 8, starts: "3567", example: "XXXX XXXX" },
+  { id: "OM", name: "Oman", code: "+968", length: 8, starts: "79", example: "XXXX XXXX" },
+  { id: "JO", name: "Jordan", code: "+962", length: 9, starts: "7", example: "7X XXX XXXX" },
+  { id: "EG", name: "Egypt", code: "+20", length: 10, starts: "1", example: "1X XXXX XXXX" },
+];
+
+// Finds a country in the list above by its id (e.g. "SA").
+const findCountry = (id) => COUNTRIES.find((country) => country.id === id) || COUNTRIES[0];
+
+// Cleans what was typed in the phone box: removes spaces, dashes and brackets.
+// The number must start right after the country code, WITHOUT the first 0
+// (e.g. Saudi Arabia: +966 then 5X XXX XXXX, not 05X XXX XXXX).
+const cleanLocalPhone = (typed) => String(typed || "").replace(/[\s\-()]/g, "");
+
+// The full phone number with the country code, e.g. "+966512345678".
+// This is the value that should be saved in the database.
+const fullPhoneNumber = (values) => findCountry(values.phoneCountry).code + cleanLocalPhone(values.phone);
 
 // Answer choices for the medical profile drop-down lists.
 const SEX_OPTIONS = ["Female", "Male"];
@@ -74,10 +115,15 @@ const EMPTY_ACCOUNT = {
   // Part 1 — account info (everyone)
   role: "",
   fullName: "",
-  phone: "",
+  phoneCountry: "SA", // country of the phone number (Saudi Arabia by default)
+  phone: "", // the number after the country code, without the first 0, e.g. 5X XXX XXXX
   email: "",
   password: "",
   confirm: "",
+  // Healthcare staff only
+  staffRole: "", // Doctor, Nurse, EMS staff, Burn specialist or Other
+  staffRoleOther: "", // typed role when "Other" is chosen
+  scfhsNumber: "", // registration number from the SCFHS professional card
   // Part 2 — medical profile (patients only)
   dob: "",
   sex: "",
@@ -99,6 +145,13 @@ const ACCOUNT_FIELDS = [
   { key: "email", label: "Email" },
   { key: "password", label: "Password" },
   { key: "confirm", label: "Confirm password" },
+];
+
+// Extra fields checked for healthcare staff (after the email).
+const STAFF_FIELDS = [
+  { key: "staffRole", label: "Your role" },
+  { key: "staffRoleOther", label: "Your role" },
+  { key: "scfhsNumber", label: "SCFHS registration number" },
 ];
 
 // Fields checked in Part 2 (patients). Weight and height are optional,
@@ -132,9 +185,27 @@ function checkAccountField(key, values) {
 
     case "phone": {
       if (!value) return "Please enter your phone number.";
-      // Remove spaces, dashes and brackets, then count the digits.
-      const digits = value.replace(/[\s\-()]/g, "");
-      if (!/^\+?\d{9,15}$/.test(digits)) return "Enter a valid phone number, e.g. 05X XXX XXXX.";
+      const country = findCountry(values.phoneCountry);
+      const raw = value.replace(/[\s\-()]/g, "");
+
+      // The country code is chosen from the list, so it must not be typed here.
+      if (raw.startsWith("+") || raw.startsWith("00")) {
+        return `Don't type the country code here. Choose your country from the list, then type the rest of the number.`;
+      }
+
+      const digits = cleanLocalPhone(value);
+      if (!/^\d+$/.test(digits)) return "The phone number can only contain digits.";
+
+      // The number comes right after the country code, so it must not start with 0.
+      if (digits.startsWith("0")) {
+        return `Don't start with 0. Type the number that comes after ${country.code}, e.g. ${country.example}.`;
+      }
+
+      // Right number of digits, and a valid first digit, for that country.
+      const startsOk = country.starts.includes(digits[0]);
+      if (digits.length !== country.length || !startsOk) {
+        return `Enter a valid ${country.name} mobile number, e.g. ${country.example}.`;
+      }
       return "";
     }
 
@@ -154,6 +225,23 @@ function checkAccountField(key, values) {
     case "confirm":
       if (!values.confirm) return "Please type your password again.";
       if (values.confirm !== values.password) return "The two passwords don't match.";
+      return "";
+
+    case "staffRole":
+      return value ? "" : "Please choose your role.";
+
+    // Only required when "Other" was chosen as the role.
+    case "staffRoleOther":
+      if (values.staffRole === "Other" && !value) return "Please type your role.";
+      return "";
+
+    // SCFHS registration number: letters, digits and dashes only.
+    // BurnCare does not check it with SCFHS; the admin reviews it by hand.
+    case "scfhsNumber":
+      if (!value) return "Please enter your SCFHS registration number.";
+      if (!/^[A-Za-z0-9-]{5,20}$/.test(value)) {
+        return "Enter the number as shown on your SCFHS card (letters, digits and dashes only).";
+      }
       return "";
 
     case "dob":
@@ -245,13 +333,21 @@ function RegisterPage({ role }) {
   const [step, setStep] = useState(1); // which part of the form (1 or 2)
   const [direction, setDirection] = useState("forward"); // slide direction for the animation
   const [registered, setRegistered] = useState(false); // form accepted?
+  const [saving, setSaving] = useState(false); // waiting for the server?
+  const [serverError, setServerError] = useState(""); // message from the server
   const formTopRef = useRef(null);
 
   const isPatient = account.role === "patient";
   const roleTitle = ACCOUNT_ROLES.find((item) => item.value === account.role)?.title;
 
+  // Part 1 fields: staff also answer "What is your role?", which comes
+  // after the email and before the password (same order as on screen).
+  const partOneFields = isPatient
+    ? ACCOUNT_FIELDS
+    : [...ACCOUNT_FIELDS.slice(0, 3), ...STAFF_FIELDS, ...ACCOUNT_FIELDS.slice(3)];
+
   // The fields that belong to the part currently on screen.
-  const fieldsOnScreen = step === 1 ? ACCOUNT_FIELDS : MEDICAL_FIELDS;
+  const fieldsOnScreen = step === 1 ? partOneFields : MEDICAL_FIELDS;
 
   // The pop-up shows ONE problem at a time: the first field (in order) with a problem.
   const current = fieldsOnScreen.find(({ key }) => problems[key]);
@@ -264,6 +360,12 @@ function RegisterPage({ role }) {
   const update = (key, value) => {
     const next = { ...account, [key]: value };
     setAccount(next);
+
+    // Changing the country changes the phone rules, so check the phone again.
+    if (key === "phoneCountry" && problems.phone) {
+      setProblems({ ...problems, phone: checkAccountField("phone", next) });
+      return;
+    }
 
     const recheckConfirm = key === "password" && problems.confirm;
     if (problems[key] || recheckConfirm) {
@@ -288,7 +390,8 @@ function RegisterPage({ role }) {
     box.classList.remove("is-flashing");
     void box.offsetWidth; // restarts the shake animation
     box.classList.add("is-flashing");
-    box.querySelector("input, select, button")?.focus({ preventScroll: true });
+    // Put the cursor in the box (a text box first, if the question has one).
+    (box.querySelector("input") || box.querySelector("select, button"))?.focus({ preventScroll: true });
   };
 
   // Check a list of fields. Returns true if they are all fine; otherwise
@@ -322,11 +425,11 @@ function RegisterPage({ role }) {
   };
 
   // Runs when the main button is pressed ("Register", "Next" or "Create account").
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault(); // stop the page from reloading
 
     if (step === 1) {
-      if (!checkFields(ACCOUNT_FIELDS)) return;
+      if (!checkFields(partOneFields)) return;
       // Patients continue to Part 2; staff are done.
       if (isPatient) {
         goToStep(2);
@@ -336,9 +439,33 @@ function RegisterPage({ role }) {
       return;
     }
 
-    // Everything required is valid.
-    // TODO (backend): send `account` to the Flask API here to create the
-    // account in the database (never store the password as plain text).
+    // Everything required is valid: send the form to Flask
+    // (POST /api/auth/register). Flask checks it again, saves the account
+    // in the database (the password is saved as a hash, never as text)
+    // and the phone with its country code. Staff start as "pending".
+    if (saving) return;
+    setSaving(true);
+    setServerError("");
+    try {
+      await api("/api/auth/register", { method: "POST", body: account });
+    } catch (problem) {
+      // If Flask names a field (e.g. "This email already exists"),
+      // show that problem in the usual pop-up and go to the field.
+      const onPartOne = partOneFields.some(({ key }) => key === problem.field);
+      const onPartTwo = MEDICAL_FIELDS.some(({ key }) => key === problem.field);
+      if (onPartOne || onPartTwo) {
+        if (onPartOne && step === 2) goToStep(1);
+        setProblems({ [problem.field]: problem.message });
+        setShowAlert(true);
+        window.setTimeout(() => goToField(problem.field), 350);
+      } else {
+        setServerError(problem.message);
+      }
+      return;
+    } finally {
+      setSaving(false);
+    }
+
     setRegistered(true);
     window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
   };
@@ -354,14 +481,34 @@ function RegisterPage({ role }) {
             </svg>
           </span>
           <h1>Welcome to BurnCare, {account.fullName.trim().split(/\s+/)[0]}.</h1>
-          <p className="register-done-text">
-            Your {roleTitle?.toLowerCase()} account details are complete. Account
-            creation will be connected to the BurnCare server in the next step.
-          </p>
+          {/* Patients can use BurnCare straight away (they are logged in). */}
+          {isPatient ? (
+            <p className="register-done-text">
+              Your patient account has been created and you are now logged in.
+            </p>
+          ) : (
+            <p className="register-done-text">
+              Your request has been sent to the BurnCare admin. They will check your
+              details and SCFHS number, and you can use BurnCare once your account is
+              approved. You can log in at any time to see the status of your request.
+            </p>
+          )}
+          {/* Staff who are not burn specialists: remind them they can ask a specialist. */}
+          {!isPatient && !canGiveConsultations(account.staffRole) && (
+            <p className="register-done-text">
+              You can assess cases and request a consultation from a burn specialist when you need one.
+            </p>
+          )}
           <div className="hero-actions">
-            <Link className="button button-primary" to="/login">
-              Go to login
-            </Link>
+            {isPatient ? (
+              <Link className="button button-primary" to="/guest">
+                Start an assessment
+              </Link>
+            ) : (
+              <Link className="button button-primary" to="/login">
+                Go to login
+              </Link>
+            )}
             <Link className="text-link" to="/">
               Back to home <Chevron />
             </Link>
@@ -456,13 +603,9 @@ function RegisterPage({ role }) {
                     onChange={update}
                     problem={hasProblem("fullName") && problems.fullName}
                   />
-                  <TextField
-                    id="phone"
-                    label="Phone number"
-                    type="tel"
-                    autoComplete="tel"
-                    inputMode="tel"
-                    placeholder="05X XXX XXXX"
+                  {/* Phone: choose the country (code) from the list, then type the number. */}
+                  <PhoneField
+                    country={account.phoneCountry}
                     value={account.phone}
                     onChange={update}
                     problem={hasProblem("phone") && problems.phone}
@@ -477,6 +620,47 @@ function RegisterPage({ role }) {
                     onChange={update}
                     problem={hasProblem("email") && problems.email}
                   />
+                  {/* Healthcare staff only: "What is your role?"
+                      Choosing "Other" opens a box to type the role. */}
+                  {!isPatient && (
+                    <SelectField
+                      id="staffRole"
+                      label="What is your role?"
+                      placeholder="Choose your role"
+                      options={STAFF_ROLES}
+                      value={account.staffRole}
+                      onChange={update}
+                      problem={hasProblem("staffRole") && problems.staffRole}
+                    >
+                      {account.staffRole === "Other" && (
+                        <OtherInput
+                          id="staffRoleOther"
+                          label="Type your role"
+                          placeholder="e.g. Pharmacist"
+                          value={account.staffRoleOther}
+                          onChange={update}
+                          problem={hasProblem("staffRoleOther") && problems.staffRoleOther}
+                        />
+                      )}
+                    </SelectField>
+                  )}
+
+                  {/* Healthcare staff only: SCFHS registration number.
+                      The admin uses it to check the person before approving. */}
+                  {!isPatient && (
+                    <TextField
+                      id="scfhsNumber"
+                      label="SCFHS registration number"
+                      type="text"
+                      autoComplete="off"
+                      placeholder="e.g. 12RM0012345"
+                      value={account.scfhsNumber}
+                      onChange={update}
+                      problem={hasProblem("scfhsNumber") && problems.scfhsNumber}
+                      hint="Found on your Saudi Commission for Health Specialties (SCFHS) professional card."
+                    />
+                  )}
+
                   <TextField
                     id="password"
                     label="Password"
@@ -673,8 +857,14 @@ function RegisterPage({ role }) {
 
           {/* ===== Main button ===== */}
           <div className="register-submit">
-            <button type="submit" className="button button-primary register-button">
-              {step === 2 ? "Create account" : isPatient ? "Next" : "Register"}
+            {/* Shown when the server could not create the account. */}
+            {serverError && (
+              <p className="form-error" role="alert">
+                {serverError}
+              </p>
+            )}
+            <button type="submit" className="button button-primary register-button" disabled={saving}>
+              {saving ? "Creating account…" : step === 2 ? "Create account" : isPatient ? "Next" : "Register"}
               {step === 1 && isPatient && <Chevron />}
             </button>
             {step === 1 && (
@@ -722,6 +912,55 @@ function TextField({ id, label, value, onChange, problem, hint, action, unit, op
         <p className="field-error">{problem}</p>
       ) : (
         hint && <p className="field-hint" id={`hint-${id}`}>{hint}</p>
+      )}
+    </div>
+  );
+}
+
+// The phone number question: a country list (with the calling code) on
+// the left, and the number box on the right.
+function PhoneField({ country, value, onChange, problem }) {
+  const chosen = findCountry(country);
+  return (
+    <div id="field-phone" className={`field${problem ? " is-missing" : ""}`}>
+      <label className="field-label" htmlFor="account-phone">
+        Phone number <span className="required-mark" aria-hidden="true">*</span>
+      </label>
+      <div className="phone-input">
+        {/* Country list: shows the name and the code, e.g. "Saudi Arabia (+966)". */}
+        <select
+          id="account-phoneCountry"
+          value={chosen.id}
+          onChange={(e) => onChange("phoneCountry", e.target.value)}
+          aria-label="Country calling code"
+        >
+          {COUNTRIES.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name} ({item.code})
+            </option>
+          ))}
+        </select>
+        <div className="text-input">
+          <input
+            id="account-phone"
+            type="tel"
+            autoComplete="tel-national"
+            inputMode="tel"
+            placeholder={chosen.example}
+            value={value}
+            onChange={(e) => onChange("phone", e.target.value)}
+            aria-invalid={Boolean(problem)}
+            aria-describedby="hint-phone"
+            required
+          />
+        </div>
+      </div>
+      {problem ? (
+        <p className="field-error">{problem}</p>
+      ) : (
+        <p className="field-hint" id="hint-phone">
+          Choose your country, then type the rest of your number without the first 0.
+        </p>
       )}
     </div>
   );
@@ -810,4 +1049,4 @@ function RoleIcon({ name }) {
   );
 }
 
-export { RegisterChoicePage, RegisterPage };
+export { RegisterChoicePage, RegisterPage, canGiveConsultations, fullPhoneNumber };
