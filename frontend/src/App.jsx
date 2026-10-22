@@ -21,6 +21,12 @@ import { RegisterChoicePage, RegisterPage } from "./pages/RegisterPages.jsx";
 import ComingSoonPage from "./pages/ComingSoonPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
+import PatientTopBar from "./components/PatientTopBar.jsx";
+import PatientHomePage from "./pages/PatientHomePage.jsx";
+import PatientProfilePage from "./pages/PatientProfilePage.jsx";
+import AdminPage from "./pages/AdminPage.jsx";
+
+
 
 /* =====================================================================
    2. APP — the starting point of the website
@@ -54,21 +60,44 @@ function App() {
 
   // Choose which page to show based on the web address.
   return (
-    <SiteLayout brandName={content.brandName}>
-      <Routes>
-        <Route path="/" element={<HomePage content={content} />} />
-        <Route path="/about" element={<AboutPage content={content} />} />
-        <Route path="/guest" element={<GuestPage />} />
-        {/* Register: first choose a role, then fill in that role's form. */}
-        <Route path="/register" element={<RegisterChoicePage />} />
-        <Route path="/register/patient" element={<RegisterPage role="patient" />} />
-        <Route path="/register/staff" element={<RegisterPage role="staff" />} />
+    <Routes>
+      {/* ===== Patient pages: show the top bar, then the page itself ===== */}
+      <Route path="/patient" element={<PatientTopBar />}>
+        <Route index element={<PatientHomePage />} />
+        <Route path="assessment" element={<ComingSoonPage title="New burn assessment" />} />
+        <Route path="reports" element={<ComingSoonPage title="My reports" />} />
+        <Route path="reports/:reportId" element={<ComingSoonPage title="Report" />} />
+        <Route path="recovery" element={<ComingSoonPage title="Recovery tracking" />} />
+        <Route path="chat" element={<ComingSoonPage title="Wound-care chat" />} />
+        <Route path="first-aid" element={<ComingSoonPage title="First-aid guide" />} />
+        <Route path="profile" element={<PatientProfilePage />} />
+        <Route path="/admin" element={<AdminPage />} />
+        <Route path="change-password" element={<ComingSoonPage title="Change password" />} />
+        <Route path="*" element={<ComingSoonPage title="Page not found" />} />
+      </Route>
+
+      {/* ===== Public pages: the normal site layout ===== */}
+      <Route
+        path="*"
+        element={
+          <SiteLayout brandName={content.brandName}>
+            <Routes>
+              <Route path="/" element={<HomePage content={content} />} />
+              <Route path="/about" element={<AboutPage content={content} />} />
+              <Route path="/guest" element={<GuestPage />} />
+              {/* Register: first choose a role, then fill in that role's form. */}
+              <Route path="/register" element={<RegisterChoicePage />} />
+              <Route path="/register/patient" element={<RegisterPage role="patient" />} />
+              <Route path="/register/staff" element={<RegisterPage role="staff" />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        {/* "*" means "any other address" — shows a not-found page. */}
-        <Route path="*" element={<ComingSoonPage title="Page not found" />} />
-      </Routes>
-    </SiteLayout>
+              {/* "*" means "any other address" — shows a not-found page. */}
+              <Route path="*" element={<ComingSoonPage title="Page not found" />} />
+            </Routes>
+          </SiteLayout>
+        }
+      />
+    </Routes>
   );
 }
 

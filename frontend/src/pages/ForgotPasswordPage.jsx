@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Chevron } from "../components/Chevron.jsx";
 import { prefersReducedMotion } from "../components/animations.jsx";
+import CodeBoxes from "../components/CodeBoxes.jsx";
 
 /* ---------------------------------------------------------------------
    TEST MODE — until Flask can send real emails.
@@ -459,89 +460,6 @@ function ForgotPasswordPage() {
         </div>
       </div>
     </section>
-  );
-}
-
-// ---------- Six code boxes ----------
-// Typing a digit jumps to the next box, Backspace goes back,
-// arrow keys move, and pasting a whole code fills every box.
-function CodeBoxes({ code, onChange, problem, disabled, attempt }) {
-  const boxes = useRef([]);
-
-  // Put the cursor in the first box when this step opens, and again
-  // after a wrong code (once the boxes are unlocked).
-  useEffect(() => {
-    if (!disabled) boxes.current[0]?.focus();
-  }, [attempt, disabled]);
-
-  const focusBox = (index) => boxes.current[Math.max(0, Math.min(index, code.length - 1))]?.focus();
-
-  const handleChange = (index, value) => {
-    const digits = value.replace(/\D/g, ""); // numbers only
-    if (!digits) return;
-    const next = [...code];
-    // More than one digit (e.g. typed fast or pasted) → spread across boxes.
-    digits.split("").forEach((digit, offset) => {
-      if (index + offset < next.length) next[index + offset] = digit;
-    });
-    onChange(next);
-    focusBox(index + digits.length);
-  };
-
-  const handleKeyDown = (index, event) => {
-    if (event.key === "Backspace") {
-      event.preventDefault();
-      const next = [...code];
-      if (next[index]) {
-        next[index] = "";
-      } else if (index > 0) {
-        next[index - 1] = "";
-        focusBox(index - 1);
-      }
-      onChange(next);
-    } else if (event.key === "ArrowLeft") {
-      focusBox(index - 1);
-    } else if (event.key === "ArrowRight") {
-      focusBox(index + 1);
-    }
-  };
-
-  const handlePaste = (event) => {
-    const digits = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, code.length);
-    if (!digits) return;
-    event.preventDefault();
-    const next = Array(code.length)
-      .fill("")
-      .map((_, i) => digits[i] ?? "");
-    onChange(next);
-    focusBox(digits.length);
-  };
-
-  return (
-    <div className={`code-boxes${problem ? " is-missing" : ""}`} role="group" aria-label="Verification code">
-      {code.map((digit, index) => (
-        <input
-          key={index}
-          ref={(element) => {
-            boxes.current[index] = element;
-          }}
-          className={`code-box${digit ? " is-filled" : ""}`}
-          type="text"
-          inputMode="numeric"
-          autoComplete={index === 0 ? "one-time-code" : "off"}
-          maxLength={code.length} // lets a fast typist or paste spread over the boxes
-          value={digit}
-          disabled={disabled}
-          aria-label={`Digit ${index + 1} of ${code.length}`}
-          aria-invalid={Boolean(problem)}
-          onChange={(e) => handleChange(index, e.target.value)}
-          onKeyDown={(e) => handleKeyDown(index, e)}
-          onPaste={handlePaste}
-          onFocus={(e) => e.target.select()}
-          style={{ "--i": index }}
-        />
-      ))}
-    </div>
   );
 }
 

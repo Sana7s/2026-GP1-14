@@ -1,23 +1,22 @@
 /* =====================================================================
    BurnCare — pages/LoginPage.jsx
    ---------------------------------------------------------------------
-   The sign-in page (/login).
-     - Choose Patient or Healthcare Staff (same roles as Register)
-     - Email + password, with "Show" for the password
+   The sign-in page (/login): ONE form for everyone (patients, staff
+   and admins). There is no account-type switch: Flask looks up the
+   email and replies with that account's role.
+     - Email + password, with an eye icon to show the password
      - Friendly messages under each field instead of browser pop-ups
-     - Sends the details to Flask at POST /api/auth/login
+     - Admins: after the password, a 6-digit code is emailed and the
+       "Check your email" step (VerifyCodeStep) appears in the same card
+     - Then each account goes to its own page (pageAfterLogin in auth.js)
    Styles: section "9. LOG IN PAGE" in styles.css.
    ===================================================================== */
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Chevron } from "../components/Chevron.jsx";
-
-// The two kinds of account. Same values as in RegisterPages.jsx.
-const LOGIN_ROLES = [
-  { value: "patient", label: "Patient" },
-  { value: "staff", label: "Healthcare Staff" },
-];
+import VerifyCodeStep from "../components/VerifyCodeStep.jsx";
+import { TEST_ADMIN_EMAIL, TEST_MODE, TEST_STAFF_EMAIL, logIn, pageAfterLogin } from "../auth.js";
 
 // Small glowing embers that float up around the logo.
 //   x = how far from the left (%), size = in px,
@@ -58,14 +57,19 @@ function checkLoginField(key, values) {
 
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [values, setValues] = useState({ role: "patient", email: "", password: "" });
+  // If another page sent an email along (e.g. after resetting the
+  // password), start with it already typed in.
+  const [values, setValues] = useState({
+    email: location.state?.email ?? "",
+    password: "",
+  });
   const [problems, setProblems] = useState({}); // problem message per field
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false); // waiting for Flask?
   const [serverMessage, setServerMessage] = useState(""); // message from the server
-
-  const roleIndex = LOGIN_ROLES.findIndex((item) => item.value === values.role);
+  const [verifyHint, setVerifyHint] = useState(""); // admin: show the code step for this email
 
   // Save what the visitor typed. If that field had a problem, check it
   // again so the red message disappears as soon as it's fixed.
@@ -98,28 +102,17 @@ function LoginPage() {
     setLoading(true);
     setServerMessage("");
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          role: values.role,
-          email: values.email.trim(),
-          password: values.password,
-        }),
-      });
-
-      if (response.status === 401) {
-        setServerMessage("The email or password is incorrect.");
+      const result = await logIn(values.email, values.password);
+      if (result.verificationRequired) {
+        // Admin: a code was emailed → show the "Check your email" step.
+        setVerifyHint(result.emailHint);
         return;
       }
-      if (!response.ok) throw new Error("Login API not available");
-
-      // TODO (backend): save the login (e.g. the token Flask sends back)
-      // and change "/" to the patient or staff dashboard once it exists.
-      navigate("/");
-    } catch {
-      // Flask is off, or /api/auth/login hasn't been written yet.
-      setServerMessage("Sign-in isn't connected to the server yet. Please try again later.");
+      // Flask keeps the login in a cookie (credentials: same-origin).
+      navigate(pageAfterLogin(result.account));
+    } catch (error) {
+      // Wrong email/password, not approved yet, or Flask is off.
+      setServerMessage(error.message);
     } finally {
       setLoading(false);
     }
@@ -158,91 +151,93 @@ function LoginPage() {
           <p className="login-brand-text">Fast, informed burn assessment for patients and care teams.</p>
         </aside>
 
-        {/* ===== The form ===== */}
-        <div className="login-body">
-          <header className="login-header">
-            <h1>Sign in</h1>
-            <p className="login-subtitle">Welcome back. Choose your account type to continue.</p>
-          </header>
-
-          {/* Patient / Healthcare Staff switch. The coral block slides between them. */}
-          <div
-            className="login-roles"
-            role="radiogroup"
-            aria-label="Account type"
-            style={{ "--index": roleIndex }}
-          >
-            <span className="login-roles-slider" aria-hidden="true" />
-            {LOGIN_ROLES.map((item) => (
-              <button
-                key={item.value}
-                type="button"
-                role="radio"
-                aria-checked={values.role === item.value}
-                className={`login-role${values.role === item.value ? " is-active" : ""}`}
-                onClick={() => update("role", item.value)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          {/* noValidate: we show our own friendly messages instead of the browser's. */}
-          <form className="login-form" onSubmit={handleSubmit} noValidate>
-            <LoginField
-              id="email"
-              label="Email"
-              type="email"
-              autoComplete="email"
-              placeholder="name@example.com"
-              value={values.email}
-              onChange={update}
-              problem={problems.email}
+        {/* ===== The form (or, for admins, the "Check your email" step) ===== */}
+        <div className="login-body" key={verifyHint ? "verify" : "login"}>
+          {verifyHint ? (
+            <VerifyCodeStep
+              emailHint={verifyHint}
+              onVerified={(account) => navigate(pageAfterLogin(account))}
+              onBack={() => {
+                setVerifyHint("");
+                setValues((current) => ({ ...current, password: "" }));
+              }}
             />
+          ) : (
+            <>
+              <header className="login-header">
+                <h1>Sign in</h1>
+                <p className="login-subtitle">Welcome back. Sign in to continue.</p>
+              </header>
 
-            <LoginField
-              id="password"
-              label="Password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
-              placeholder="Your password"
-              value={values.password}
-              onChange={update}
-              problem={problems.password}
-              action={
-                <button
-                  type="button"
-                  className="input-action"
-                  onClick={() => setShowPassword((shown) => !shown)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  <EyeIcon crossed={showPassword} />
+              {/* noValidate: we show our own friendly messages instead of the browser's. */}
+              <form className="login-form" onSubmit={handleSubmit} noValidate>
+                <LoginField
+                  id="email"
+                  label="Email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="name@example.com"
+                  value={values.email}
+                  onChange={update}
+                  problem={problems.email}
+                />
+
+                <LoginField
+                  id="password"
+                  label="Password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="Your password"
+                  value={values.password}
+                  onChange={update}
+                  problem={problems.password}
+                  action={
+                    <button
+                      type="button"
+                      className="input-action input-eye"
+                      onClick={() => setShowPassword((shown) => !shown)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      <EyeIcon crossed={showPassword} />
+                    </button>
+                  }
+                />
+
+                <div className="login-forgot-row">
+                  {/* Sends the email typed so far, so it doesn't need typing again. */}
+                  <Link to="/forgot-password" state={{ email: values.email.trim() }} className="login-forgot">
+                    Forgot password?
+                  </Link>
+                </div>
+
+                {serverMessage && (
+                  <p className="login-server-message" role="alert">
+                    {serverMessage}
+                  </p>
+                )}
+
+                <button type="submit" className="button button-primary login-submit" disabled={loading}>
+                  {loading ? "Signing in…" : "Log in"}
+                  {!loading && <Chevron />}
                 </button>
-              }
-            />
+              </form>
 
-            <div className="login-forgot-row">
-              {/* TODO: build the forgot-password page. For now this shows "Page not found". */}
-              <Link to="/forgot-password" className="login-forgot">
-                Forgot password?
-              </Link>
-            </div>
+              {TEST_MODE && (
+                <p className="forgot-test-note login-test-note">
+                  <span className="forgot-test-badge">Test mode</span>
+                  <span>
+                    Any email signs in as a patient. Use <strong>{TEST_STAFF_EMAIL}</strong> for staff,{" "}
+                    <strong>{TEST_ADMIN_EMAIL}</strong> for the admin, or the password <strong>wrong</strong> to see
+                    the error.
+                  </span>
+                </p>
+              )}
 
-            {serverMessage && (
-              <p className="login-server-message" role="alert">
-                {serverMessage}
+              <p className="login-signup">
+                Don&apos;t have an account? <Link to="/register">Sign up</Link>
               </p>
-            )}
-
-            <button type="submit" className="button button-primary login-submit" disabled={loading}>
-              {loading ? "Signing in…" : "Log in"}
-              {!loading && <Chevron />}
-            </button>
-          </form>
-
-          <p className="login-signup">
-            Don&apos;t have an account? <Link to={`/register/${values.role}`}>Sign up</Link>
-          </p>
+            </>
+          )}
         </div>
       </div>
     </section>
@@ -251,7 +246,7 @@ function LoginPage() {
 
 // One labelled text box (email, password). Uses the same classes as the
 // Register page (.field, .field-label, .field-error) so both look the same.
-//   action  → a button inside the box (e.g. "Show" password)
+//   action  → a button inside the box (e.g. the eye icon)
 //   problem → the red message to show under it
 function LoginField({ id, label, value, onChange, problem, action, ...inputProps }) {
   return (
@@ -296,4 +291,5 @@ function EyeIcon({ crossed }) {
     </svg>
   );
 }
+
 export default LoginPage;
