@@ -22,23 +22,19 @@ function TrackRecovery() {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Fetch timeline entries & previous assessment IDs
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        // 1. Fetch assessments to populate dropdown
         const resAssessments = await fetch("http://localhost:5000/api/assessments");
         if (resAssessments.ok) {
           const assessmentsData = await resAssessments.json();
           const list = Array.isArray(assessmentsData) ? assessmentsData : [];
           setAssessmentList(list);
           if (list.length > 0) {
-            // Automatically select the latest assessment code
             setSelectedReport(list[0].report_code || list[0].id || "");
           }
         }
 
-        // 2. Fetch recovery timeline entries
         const resRecovery = await fetch("http://localhost:5000/api/recovery");
         if (resRecovery.ok) {
           const recoveryData = await resRecovery.json();

@@ -3,11 +3,12 @@
    Patient assessment history matching BBA decision cards & styles.css
    ===================================================================== */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 function PatientHistory() {
-  const [records, setRecords] = useState([]);
+  // Load the saved assessments once, when the page opens.
+  const [records] = useState(() => JSON.parse(localStorage.getItem("bc_assessments_store") || "[]"));
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
@@ -55,7 +56,7 @@ function PatientHistory() {
             <h1>Assessment History</h1>
             <p className="guest-subtitle">Review saved reports, triage outcomes, and clinical recommendations.</p>
           </div>
-          <Link className="button button-primary" to="/patient-entry">
+          <Link className="button button-primary" to="/patient/assessment">
             ＋ New Assessment
           </Link>
         </header>
