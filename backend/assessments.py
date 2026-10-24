@@ -5,11 +5,12 @@ Saving and reading burn assessments (guests, patients and staff).
 
 API addresses (all start with /api/assessments):
   POST /                 save a new assessment (answers + burn photo)
-  GET  /mine             the logged-in user's assessments
+  GET  /mine             the logged-in user's assessments (with reasons)
   GET  /<report_code>    one report, e.g. /api/assessments/BC-261021-7K4QX
 
 The photo is saved in the "uploads" folder; the database keeps its path.
-The result is worked out on the server (referral.py), so it can be trusted.
+The burn size (tbsa.py) and the result (referral.py) are worked out on
+the server, so they can be trusted.
 """
 
 import json
@@ -21,6 +22,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, current_app, jsonify, request
 
 import referral
+import tbsa
 from auth import current_user, error, login_required
 from db import commit, execute, query_all, query_one
 
@@ -88,7 +90,9 @@ def report_json(assessment_id):
 def create_assessment():
     """
     The page sends a "multipart form" with two parts:
-      data  → the answers as JSON text: {"emergency": {...}, "form": {...}}
+      data  → the answers as JSON text:
+              {"emergency": {...}, "form": {...}, "bodyMap": [...]}
+              (bodyMap is optional: the Guest page doesn't send it yet)
       photo → the burn photo (JPG or PNG, up to 10 MB)
     """
     try:
@@ -112,10 +116,22 @@ def create_assessment():
     if not photo_bytes or len(photo_bytes) > MAX_PHOTO_BYTES:
         return error("Please choose a photo under 10 MB.", field="photo")
 
-    # ----- Body map and AI (not connected yet) -----
-    # TODO: send the photo to the AI model here, and read the body map,
-    # then fill these values. Until then the result can be "pending".
-    analysis = {"tbsa": None, "burnedAreas": [], "depth": None, "confidence": None}
+    # ----- Body map: the burn size (TBSA), worked out again here -----
+    burn_size = None
+    if "bodyMap" in data:
+        burn_size, problem = tbsa.calculate(form["age"], data["bodyMap"])
+        if problem:
+            return error(problem, field="tbsa")
+
+    # ----- AI photo check (not connected yet) -----
+    # TODO: send the photo to the AI model here and fill depth/confidence.
+    # Until then, low-risk answers give the result "pending".
+    analysis = {
+        "tbsa": burn_size["total"] if burn_size else None,
+        "burnedAreas": burn_size["specialAreas"] if burn_size else [],
+        "depth": None,
+        "confidence": None,
+    }
     decision, reasons, depth = referral.decide(emergency, form, analysis)
 
     # ----- Save the photo file with a random name -----
@@ -154,6 +170,10 @@ def create_assessment():
     )
     assessment_id = saved["assessment_id"]
 
+    # Each burned area of the body map (weak entity of assessments).
+    for area in (burn_size["areas"] if burn_size else []):
+        execute("INSERT INTO burn_areas (assessment_id, body_region, side, percent) VALUES (%s, %s, %s, %s)",
+                (assessment_id, area["id"], area["side"], area["percent"]))
     for name in form["conditions"]:
         execute("INSERT INTO assessment_conditions (assessment_id, condition_name) VALUES (%s, %s)",
                 (assessment_id, name))
@@ -177,12 +197,19 @@ def create_assessment():
 @bp.get("/mine")
 @login_required
 def my_assessments(user):
-    """The logged-in user's own assessments, newest first."""
+    """The logged-in user's own assessments, newest first, with the
+    referral reasons (for the My reports page)."""
     rows = query_all(
         """
-        SELECT report_code, decision, cause, age_group,
-               TO_CHAR(created_at, 'FMDD Mon YYYY, HH24:MI') AS created
-        FROM assessments WHERE created_by = %s OR patient_id = %s ORDER BY created_at DESC
+        SELECT a.report_code, a.decision, a.cause, a.age_group, a.circumferential,
+               TO_CHAR(a.created_at, 'FMDD Mon YYYY, HH24:MI') AS created,
+               -- the reasons, in order, as one list (empty list if none)
+               COALESCE((SELECT ARRAY_AGG(r.reason_text ORDER BY r.reason_no)
+                         FROM referral_reasons r WHERE r.assessment_id = a.assessment_id),
+                        '{}') AS reasons
+        FROM assessments a
+        WHERE a.created_by = %s OR a.patient_id = %s
+        ORDER BY a.created_at DESC
         """,
         (user["account_id"], user["account_id"]),
     )
@@ -191,6 +218,8 @@ def my_assessments(user):
         "decision": DECISION_FOR_PAGE[r["decision"]],
         "cause": r["cause"],
         "age": r["age_group"],
+        "circumferential": r["circumferential"],
+        "reasons": r["reasons"],
         "createdAt": r["created"],
     } for r in rows]})
 

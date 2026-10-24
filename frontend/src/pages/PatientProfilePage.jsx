@@ -1,24 +1,27 @@
 /* =====================================================================
    BurnCare — pages/PatientProfilePage.jsx
    ---------------------------------------------------------------------
-   The patient's profile (/patient/profile). Same sections as the
-   wireframe:
-     • Header: profile picture, "Profile", why it matters
-     • Personal details: name, date of birth (with age), weight,
-       height, phone, email
-     • Health information: diabetes (No / Type 1 / Type 2 / Not sure),
-       other conditions (optional)
+   The patient's profile (/patient/profile), loaded from and saved to
+   the database through Flask:
+     GET /api/patient/profile   when the page opens
+     PUT /api/patient/profile   on "Save changes"
+   Sections:
+     • Header: profile picture (initials), "Profile", why it matters
+     • Personal details: name, date of birth (with age), sex, weight,
+       height, phone; the email is shown but can't be changed here
+     • Health information: chronic condition, allergy, medication — the
+       same lists as the Register page, with "Other (not listed)"
      • Save changes
      • Account: Change password
    "Log out" lives in the profile-picture menu in the top bar.
-   Uses the Register page field styles (.field, .text-input...).
    Styles: "Profile page" part of section 10 in styles.css.
    ===================================================================== */
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useOutletContext } from "react-router-dom";
 import { Chevron } from "../components/Chevron.jsx";
-import { DEMO_PATIENT, DIABETES_OPTIONS, initials } from "../patientData.js";
+import { api } from "../auth.js";
+import { ALLERGIES, CHRONIC_CONDITIONS, MEDICATIONS, OTHER_OPTION, initials } from "../patientData.js";
 
 // Today's date as YYYY-MM-DD (a birth date can't be after it).
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -36,16 +39,47 @@ function ageFrom(dob) {
   return age >= 0 ? age : null;
 }
 
-// Fields checked when saving, in order, with the name for messages.
-const PROFILE_FIELDS = ["name", "dob", "weight", "height", "phone", "email"];
+// The three health lists: which box, its list, and the label.
+const HEALTH = [
+  { key: "condition", label: "Chronic condition", options: CHRONIC_CONDITIONS, placeholder: "Choose a condition", other: "e.g. Thyroid disease" },
+  { key: "allergy", label: "Allergy", options: ALLERGIES, placeholder: "Choose an allergy", other: "e.g. Codeine" },
+  { key: "medication", label: "Current medication", options: MEDICATIONS, placeholder: "Choose a medication", other: "e.g. Levothyroxine" },
+];
+
+// Saved text → the list choice (+ typed text when it isn't in the list).
+function toChoice(text, options) {
+  if (!text) return { choice: "", other: "" };
+  if (options.includes(text)) return { choice: text, other: "" };
+  return { choice: OTHER_OPTION, other: text };
+}
+
+// Profile from Flask → the values in the form.
+function toForm(profile) {
+  const form = {
+    fullName: profile.fullName,
+    dob: profile.dob,
+    sex: profile.sex,
+    weight: String(profile.weight ?? ""),
+    height: String(profile.height ?? ""),
+    phone: profile.phone,
+  };
+  for (const item of HEALTH) {
+    const { choice, other } = toChoice(profile[item.key], item.options);
+    form[item.key] = choice;
+    form[`${item.key}Other`] = other;
+  }
+  return form;
+}
+
+// Fields checked when saving, in order.
+const FIELDS = ["fullName", "dob", "sex", "weight", "height", "phone", "conditionOther", "allergyOther", "medicationOther"];
 
 // Checks ONE field and returns a problem message, or "" if it is fine.
-// Same rules as the Register page.
+// Same rules as the Register page (and the server checks them again).
 function checkField(key, values) {
   const value = String(values[key] ?? "").trim();
-
   switch (key) {
-    case "name":
+    case "fullName":
       if (!value) return "Please enter your full name.";
       if (value.length < 3) return "Your name looks too short.";
       return "";
@@ -54,67 +88,127 @@ function checkField(key, values) {
       if (value > todayISO()) return "Your date of birth can't be in the future.";
       if (value < "1900-01-01") return "Please check the year of your date of birth.";
       return "";
+    case "sex":
+      return value ? "" : "Please choose your sex.";
     case "weight":
-      if (!value) return "Please enter your weight.";
-      if (!(Number(value) >= 1 && Number(value) <= 350)) return "Enter a weight between 1 and 350 kg.";
+      if (value && !(Number(value) >= 1 && Number(value) <= 350)) return "Enter a weight between 1 and 350 kg.";
       return "";
     case "height":
-      if (!value) return "Please enter your height.";
-      if (!(Number(value) >= 30 && Number(value) <= 250)) return "Enter a height between 30 and 250 cm.";
+      if (value && !(Number(value) >= 30 && Number(value) <= 250)) return "Enter a height between 30 and 250 cm.";
       return "";
     case "phone": {
-      if (!value) return "Please enter your phone number.";
       const digits = value.replace(/[\s\-()]/g, "");
-      if (!/^\+?\d{9,15}$/.test(digits)) return "Enter a valid phone number, e.g. 05X XXX XXXX.";
+      if (!digits) return "Please enter your phone number.";
+      if (digits.startsWith("0")) return "Don't start with 0. Type the number that comes after the country code.";
+      if (!/^\d{8,10}$/.test(digits)) return "Enter a valid mobile number.";
       return "";
     }
-    case "email":
-      if (!value) return "Please enter your email.";
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Enter a valid email, e.g. name@example.com.";
+    case "conditionOther":
+    case "allergyOther":
+    case "medicationOther": {
+      const listKey = key.replace("Other", "");
+      if (values[listKey] === OTHER_OPTION && !value) return "Please type it here.";
       return "";
+    }
     default:
       return "";
   }
 }
 
 function PatientProfilePage() {
-  const [profile, setProfile] = useState({ ...DEMO_PATIENT });
-  const [saved, setSaved] = useState({ ...DEMO_PATIENT }); // last saved version
+  const { setAccount } = useOutletContext(); // to update the name in the top bar
+  const [info, setInfo] = useState(null); // what Flask sent (email, phone code)
+  const [form, setForm] = useState(null); // the values in the boxes
+  const [saved, setSaved] = useState(null); // the last saved values
+  const [loadProblem, setLoadProblem] = useState("");
   const [problems, setProblems] = useState({});
-  const [status, setStatus] = useState(""); // "saved" message after saving
+  const [saving, setSaving] = useState(false);
+  const [serverMessage, setServerMessage] = useState("");
+  const [status, setStatus] = useState(""); // "saved" after saving
 
-  const age = ageFrom(profile.dob);
-  const hasChanges = JSON.stringify(profile) !== JSON.stringify(saved);
+  // Load the profile from the database once.
+  useEffect(() => {
+    let isCurrent = true;
+    api("/api/patient/profile")
+      .then(({ profile }) => {
+        if (!isCurrent) return;
+        setInfo(profile);
+        setForm(toForm(profile));
+        setSaved(toForm(profile));
+      })
+      .catch(() => isCurrent && setLoadProblem("We couldn't load your profile. Please refresh the page."));
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
-  // Save what was typed. If that field had a problem, check it again
-  // so the red message disappears as soon as it's fixed.
+  if (loadProblem) return <p className="patient-empty profile-loading">{loadProblem}</p>;
+  if (!form) return <p className="patient-empty profile-loading">Loading your profile…</p>;
+
+  const age = ageFrom(form.dob);
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(saved);
+
+  // Save what was typed; re-check the box if it already shows a problem.
   const update = (key, value) => {
-    const next = { ...profile, [key]: value };
-    setProfile(next);
+    const next = { ...form, [key]: value };
+    setForm(next);
     setStatus("");
+    setServerMessage("");
     if (problems[key]) setProblems({ ...problems, [key]: checkField(key, next) });
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    if (saving) return;
 
     const found = {};
-    PROFILE_FIELDS.forEach((key) => {
-      const message = checkField(key, profile);
+    for (const key of FIELDS) {
+      const message = checkField(key, form);
       if (message) found[key] = message;
-    });
+    }
     setProblems(found);
-
-    const first = PROFILE_FIELDS.find((key) => found[key]);
+    const first = FIELDS.find((key) => found[key]);
     if (first) {
       document.getElementById(`profile-${first}`)?.focus();
       return;
     }
 
-    // TODO (backend): send `profile` to Flask (e.g. PUT /api/patient/profile)
-    // and only show "saved" when it succeeds.
-    setSaved({ ...profile });
-    setStatus("saved");
+    // The list choice, or the typed text for "Other (not listed)".
+    const pick = (key) => (form[key] === OTHER_OPTION ? form[`${key}Other`].trim() : form[key]);
+    setSaving(true);
+    setServerMessage("");
+    try {
+      const data = await api("/api/patient/profile", {
+        method: "PUT",
+        body: {
+          fullName: form.fullName.trim(),
+          dob: form.dob,
+          sex: form.sex,
+          weight: form.weight,
+          height: form.height,
+          phoneCountry: info.phoneCountry,
+          phone: form.phone,
+          condition: pick("condition"),
+          allergy: pick("allergy"),
+          medication: pick("medication"),
+        },
+      });
+      setInfo(data.profile);
+      setForm(toForm(data.profile));
+      setSaved(toForm(data.profile));
+      setAccount(data.user); // the top bar shows the new name
+      setStatus("saved");
+    } catch (error) {
+      // e.g. a phone problem from the server → under the phone box.
+      if (error.field && FIELDS.includes(error.field)) {
+        setProblems({ [error.field]: error.message });
+        document.getElementById(`profile-${error.field}`)?.focus();
+      } else {
+        setServerMessage(error.message);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -122,11 +216,11 @@ function PatientProfilePage() {
       {/* ===== Header ===== */}
       <header className="profile-header">
         <span className="profile-avatar" aria-hidden="true">
-          {initials(profile.name || "?")}
+          {initials(form.fullName || "?")}
         </span>
         <div>
           <h1>Profile</h1>
-          <p>Age and diabetes status are used in every assessment.</p>
+          <p>Your age and health information help BurnCare assess your burns.</p>
         </div>
       </header>
 
@@ -136,12 +230,12 @@ function PatientProfilePage() {
           <h2 id="personal-title">Personal details</h2>
           <div className="profile-fields">
             <ProfileField
-              id="name"
+              id="fullName"
               label="Full name"
               autoComplete="name"
-              value={profile.name}
+              value={form.fullName}
               onChange={update}
-              problem={problems.name}
+              problem={problems.fullName}
             />
             <ProfileField
               id="dob"
@@ -150,30 +244,45 @@ function PatientProfilePage() {
               type="date"
               min="1900-01-01"
               max={todayISO()}
-              value={profile.dob}
+              value={form.dob}
               onChange={update}
               problem={problems.dob}
             />
+            <div className={`field${problems.sex ? " is-missing" : ""}`}>
+              <label className="field-label" htmlFor="profile-sex">
+                Sex
+              </label>
+              <select id="profile-sex" value={form.sex} onChange={(e) => update("sex", e.target.value)}>
+                <option value="" disabled hidden>
+                  Choose
+                </option>
+                <option>Female</option>
+                <option>Male</option>
+              </select>
+              {problems.sex && <p className="field-error">{problems.sex}</p>}
+            </div>
             <div className="profile-pair">
               <ProfileField
                 id="weight"
                 label="Weight (kg)"
+                optional
                 type="number"
                 inputMode="decimal"
                 min="1"
                 max="350"
-                value={profile.weight}
+                value={form.weight}
                 onChange={update}
                 problem={problems.weight}
               />
               <ProfileField
                 id="height"
                 label="Height (cm)"
+                optional
                 type="number"
                 inputMode="decimal"
                 min="30"
                 max="250"
-                value={profile.height}
+                value={form.height}
                 onChange={update}
                 problem={problems.height}
               />
@@ -181,23 +290,26 @@ function PatientProfilePage() {
             <ProfileField
               id="phone"
               label="Phone number"
+              prefix={info.phoneCode}
               type="tel"
               inputMode="tel"
-              autoComplete="tel"
-              placeholder="05X XXX XXXX"
-              value={profile.phone}
+              autoComplete="tel-national"
+              placeholder="5X XXX XXXX"
+              value={form.phone}
               onChange={update}
               problem={problems.phone}
             />
-            <ProfileField
-              id="email"
-              label="Email"
-              type="email"
-              autoComplete="email"
-              value={profile.email}
-              onChange={update}
-              problem={problems.email}
-            />
+            <div className="field">
+              <label className="field-label" htmlFor="profile-email">
+                Email
+              </label>
+              <div className="text-input is-readonly">
+                <input id="profile-email" type="email" value={info.email} readOnly aria-describedby="profile-email-hint" />
+              </div>
+              <p className="field-hint" id="profile-email-hint">
+                Your email is how you sign in, so it can&apos;t be changed here.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -205,38 +317,45 @@ function PatientProfilePage() {
         <section className="patient-card profile-card" aria-labelledby="health-title">
           <h2 id="health-title">Health information</h2>
           <div className="profile-fields">
-            <fieldset className="field profile-fieldset">
-              <legend className="field-label">Do you have diabetes?</legend>
-              <div className="diabetes-options">
-                {DIABETES_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`diabetes-option${profile.diabetes === option.value ? " is-selected" : ""}`}
-                    aria-pressed={profile.diabetes === option.value}
-                    onClick={() => update("diabetes", option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
+            {HEALTH.map((item) => (
+              <div key={item.key} className="field">
+                <label className="field-label" htmlFor={`profile-${item.key}`}>
+                  {item.label} <span className="optional-mark">Optional</span>
+                </label>
+                <select id={`profile-${item.key}`} value={form[item.key]} onChange={(e) => update(item.key, e.target.value)}>
+                  <option value="" disabled hidden>
+                    {item.placeholder}
+                  </option>
+                  {item.options.map((option) => (
+                    <option key={option}>{option}</option>
+                  ))}
+                </select>
+                {form[item.key] === OTHER_OPTION && (
+                  <ProfileField
+                    id={`${item.key}Other`}
+                    label={`Type your ${item.label.toLowerCase()}`}
+                    hiddenLabel
+                    placeholder={item.other}
+                    maxLength={120}
+                    value={form[`${item.key}Other`]}
+                    onChange={update}
+                    problem={problems[`${item.key}Other`]}
+                  />
+                )}
               </div>
-            </fieldset>
-
-            <ProfileField
-              id="otherConditions"
-              label="Other conditions"
-              optional
-              placeholder="e.g. high blood pressure"
-              value={profile.otherConditions}
-              onChange={update}
-            />
+            ))}
           </div>
         </section>
 
         {/* ===== Save ===== */}
         <div className="profile-save">
-          <button type="submit" className="button button-primary profile-save-button" disabled={!hasChanges}>
-            Save changes
+          {serverMessage && (
+            <p className="field-error" role="alert">
+              {serverMessage}
+            </p>
+          )}
+          <button type="submit" className="button button-primary profile-save-button" disabled={!hasChanges || saving}>
+            {saving ? "Saving…" : "Save changes"}
           </button>
           {status === "saved" && !hasChanges && (
             <p className="profile-saved" role="status">
@@ -259,17 +378,20 @@ function PatientProfilePage() {
 }
 
 // One labelled text box, styled like the Register page fields.
-//   extra    → small grey text after the label (e.g. "age 34")
-//   optional → shows "(optional)" after the label
-function ProfileField({ id, label, extra, optional, value, onChange, problem, ...inputProps }) {
+//   extra       → small grey text after the label (e.g. "age 34")
+//   optional    → shows "Optional" after the label
+//   prefix      → text inside the box before the input (e.g. "+966")
+//   hiddenLabel → label only for screen readers (the "Other" text box)
+function ProfileField({ id, label, extra, optional, prefix, hiddenLabel, value, onChange, problem, ...inputProps }) {
   return (
-    <div className={`field${problem ? " is-missing is-flashing" : ""}`}>
-      <label className="field-label" htmlFor={`profile-${id}`}>
+    <div className={`field${problem ? " is-missing is-flashing" : ""}${hiddenLabel ? " other-input" : ""}`}>
+      <label className={hiddenLabel ? "visually-hidden" : "field-label"} htmlFor={`profile-${id}`}>
         {label}
         {extra && <span className="profile-label-extra">· {extra}</span>}
         {optional && <span className="optional-mark">Optional</span>}
       </label>
-      <div className="text-input">
+      <div className={`text-input${prefix ? " has-prefix" : ""}`}>
+        {prefix && <span className="input-prefix">{prefix}</span>}
         <input
           id={`profile-${id}`}
           value={value}

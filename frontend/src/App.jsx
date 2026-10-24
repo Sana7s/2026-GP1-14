@@ -26,9 +26,12 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import PatientTopBar from "./components/PatientTopBar.jsx";
 import PatientHomePage from "./pages/PatientHomePage.jsx";
 import PatientProfilePage from "./pages/PatientProfilePage.jsx";
-import PatientEntry from "./pages/PatientEntry.jsx"; // assessment form
-import PatientHistory from "./pages/PatientHistory.jsx"; // saved reports
-import TrackRecovery from "./pages/TrackRecovery.jsx"; // recovery timeline
+import PatientEntry from "./pages/PatientEntry.jsx"; 
+import PatientHistory from "./pages/PatientHistory.jsx"; 
+import TrackRecovery from "./pages/TrackRecovery.jsx"; 
+import TbsaPage from "./pages/TbsaPage.jsx";
+import FirstAidPage from "./pages/FirstAidPage.jsx";
+import ChangePasswordPage from "./pages/ChangePasswordPage.jsx";
 
 /* =====================================================================
    APP — the starting point of the website
@@ -71,9 +74,9 @@ function App() {
         <Route path="reports/:reportId" element={<ComingSoonPage title="Report" />} />
         <Route path="recovery" element={<TrackRecovery />} />
         <Route path="chat" element={<ComingSoonPage title="Wound-care chat" />} />
-        <Route path="first-aid" element={<ComingSoonPage title="First-aid guide" />} />
+        <Route path="first-aid" element={<FirstAidPage />} />
         <Route path="profile" element={<PatientProfilePage />} />
-        <Route path="change-password" element={<ComingSoonPage title="Change password" />} />
+        <Route path="change-password" element={<ChangePasswordPage />} />
         <Route path="*" element={<ComingSoonPage title="Page not found" />} />
       </Route>
 
@@ -86,6 +89,7 @@ function App() {
               <Route path="/" element={<HomePage content={content} />} />
               <Route path="/about" element={<AboutPage content={content} />} />
               <Route path="/guest" element={<GuestPage />} />
+              <Route path="/tbsa" element={<TbsaPage />} />
               <Route path="/admin" element={<AdminPage />} />
               {/* Register: first choose a role, then fill in that role's form. */}
               <Route path="/register" element={<RegisterChoicePage />} />

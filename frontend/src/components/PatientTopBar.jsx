@@ -1,7 +1,14 @@
 /* =====================================================================
    BurnCare — components/PatientTopBar.jsx
    ---------------------------------------------------------------------
-   The frame around every page a signed-in patient sees (/patient/...):
+   The frame around every page a signed-in patient sees (/patient/...).
+   It asks Flask who is signed in (GET /api/auth/me):
+     - not signed in, or not a patient → sent to /login
+     - a patient → their name in the top bar, and the account is passed
+       to the page below (pages read it with useOutletContext()).
+       Pages can also update it (setAccount), e.g. after the Profile page
+       saves a new name.
+   Parts:
      1. Top bar: logo · Home · My reports · Recovery · Wound-care chat
                  · profile picture (opens a menu: My profile, Log out)
      2. The page itself (<Outlet /> = whichever patient page is open)
@@ -10,8 +17,9 @@
    ===================================================================== */
 
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { DEMO_PATIENT, initials } from "../patientData.js";
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { getCurrentAccount, logOut } from "../auth.js";
+import { initials } from "../patientData.js";
 
 // Links in the top bar. "end" means "Home" is only active on /patient itself.
 const PATIENT_LINKS = [
@@ -22,7 +30,32 @@ const PATIENT_LINKS = [
 ];
 
 function PatientTopBar() {
-  const patient = DEMO_PATIENT;
+  // undefined = still asking Flask, null = not signed in, object = the account
+  const [account, setAccount] = useState(undefined);
+
+  // Open every patient page at the top (the browser keeps the old scroll
+  // position otherwise, e.g. after clicking a link at the bottom of Home).
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    getCurrentAccount().then((found) => {
+      if (isCurrent) setAccount(found);
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
+  // Still checking: show nothing for a moment (no flash of the wrong page).
+  if (account === undefined) return null;
+  // Not signed in, or not a patient → go to the sign-in page.
+  if (!account || account.role !== "patient") return <Navigate to="/login" replace />;
+
+  const patient = { name: account.fullName, email: account.email };
 
   return (
     <div className="site-shell patient-shell">
@@ -53,7 +86,7 @@ function PatientTopBar() {
 
       {/* ===== 2. The page ===== */}
       <main id="main-content" className="patient-main">
-        <Outlet />
+        <Outlet context={{ account, setAccount }} />
       </main>
 
       {/* ===== 3. Disclaimer ===== */}
@@ -83,6 +116,7 @@ function AccountMenu({ patient }) {
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const onProfile = location.pathname.startsWith("/patient/profile"); // highlight the button there
 
   // Close the menu whenever the address changes.
@@ -150,11 +184,19 @@ function AccountMenu({ patient }) {
             <PersonIcon />
             My profile
           </Link>
-          {/* TODO (backend): also clear the saved login before leaving. */}
-          <Link to="/login" className="account-menu-item account-menu-logout" role="menuitem">
+          {/* Ends the session in Flask, then goes to the sign-in page. */}
+          <button
+            type="button"
+            className="account-menu-item account-menu-logout"
+            role="menuitem"
+            onClick={async () => {
+              await logOut();
+              navigate("/login", { replace: true });
+            }}
+          >
             <LogoutIcon />
             Log out
-          </Link>
+          </button>
         </div>
       )}
     </div>

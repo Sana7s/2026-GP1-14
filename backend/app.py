@@ -29,6 +29,7 @@ import assessments
 import auth
 import consultations
 import db
+import patient
 from config import Config
 
 
@@ -44,6 +45,7 @@ def create_app():
     app.register_blueprint(admin.bp)           # /api/admin/...
     app.register_blueprint(assessments.bp)     # /api/assessments/...
     app.register_blueprint(consultations.bp)   # /api/consultations/...
+    app.register_blueprint(patient.bp)         # /api/patient/...
 
     # A quick check that the server and the database are working.
     @app.get("/api/health")
