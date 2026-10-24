@@ -12,9 +12,12 @@
      3. Report — a paper-style report with a unique ID, all the answers
         and the photo, with the BBA decision at the top.
 
-   When "Assess case" is pressed, the answers and the photo are sent to
-   the Flask backend (POST /api/assessments). Flask saves them in the
-   database, works out the BBA decision and sends back the report.
+   When "Assess case" is pressed, the answers, the body map and the photo
+   are sent to the Flask backend (POST /api/assessments). Flask works out
+   the burn size again (tbsa.py) and the BBA decision (referral.py),
+   saves everything in the database and sends back the report.
+   The body map is the TBSA calculator (components/TbsaCalculator.jsx),
+   the same one the Patient assessment uses.
 
    The questions follow the British Burn Association (BBA) referral
    thresholds (see the "BurnCare Assessment Form Questions" document).
@@ -25,6 +28,8 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { prefersReducedMotion } from "../components/animations.jsx";
 import { Chevron } from "../components/Chevron.jsx";
+import TbsaCalculator from "../components/TbsaCalculator.jsx";
+import { formatPercent } from "../tbsa/tbsaCharts.js";
 import { api } from "../api.js";
 
 /* ---------------------------------------------------------------------
@@ -111,6 +116,17 @@ const EMPTY_FORM = {
 // Is the patient a child (under 16)? Every group except the last one.
 const isChild = (age) => age !== "" && age !== ADULT;
 
+// The TBSA calculator needs an age in years to choose its chart. Each age
+// group → the youngest age in it (the same chart for the whole group).
+const AGE_IN_YEARS = {
+  "Under 1 year": 0,
+  "1 – 4 years": 1,
+  "5 – 9 years": 5,
+  "10 – 14 years": 10,
+  "15 years": 15,
+  [ADULT]: 16,
+};
+
 // Did any emergency answer say "Yes" or "Not sure"?
 const hasEmergency = (emergency) =>
   Object.values(emergency).some((value) => EMERGENCY_ANSWERS.includes(value));
@@ -160,6 +176,8 @@ function GuestPage() {
   const [dragging, setDragging] = useState(false); // photo dragged over box?
   const [saving, setSaving] = useState(false); // waiting for the server?
   const [saveError, setSaveError] = useState(""); // message if saving failed
+  const [tbsa, setTbsa] = useState(null); // latest result from the body map
+  const [mapKey, setMapKey] = useState(0); // change it to clear the body map
   const fileInputRef = useRef(null);
 
   const child = isChild(form.age);
@@ -181,6 +199,7 @@ function GuestPage() {
           { key: "notHealed", label: "Burn not healed after 2 weeks", answered: form.notHealed !== "" },
           // Only required when the patient is a child.
           ...(child ? [{ key: "childUnwell", label: "Child unwell or feverish", answered: form.childUnwell !== "" }] : []),
+          { key: "tbsa", label: "Burned areas on the body map", answered: Boolean(tbsa?.breakdown.length) },
           { key: "photo", label: "Burn photo", answered: Boolean(photo) },
         ];
 
@@ -188,10 +207,8 @@ function GuestPage() {
   const current = required.find(({ key }) => missing.includes(key));
   const isMissing = (key) => current?.key === key;
 
-  // When every missing answer has been filled, close the pop-up.
-  useEffect(() => {
-    if (showAlert && !current) setShowAlert(false);
-  }, [current, showAlert]);
+  // (The pop-up only shows while a question is still missing — see
+  // "showAlert && current" below — so it closes by itself.)
 
   // Free the memory used by an old photo preview.
   useEffect(() => {
@@ -299,7 +316,9 @@ function GuestPage() {
 
     // The photo and the answers go together in one "multipart form".
     const upload = new FormData();
-    upload.append("data", JSON.stringify({ emergency, form }));
+    // Body map: only WHICH areas and how much (the server adds them up again).
+    const bodyMap = tbsa.breakdown.map(({ id, method, palms, touched }) => ({ id, method, palms, touched }));
+    upload.append("data", JSON.stringify({ emergency, form, bodyMap }));
     upload.append("photo", photo);
 
     setSaving(true);
@@ -316,6 +335,8 @@ function GuestPage() {
         photoUrl, // the photo preview already in the browser
         assessedBy: saved.assessedBy, // the account's name, or "Guest"
         result: saved.result,
+        tbsa: saved.tbsa, // burn size worked out by the server
+        bodyMap: tbsa, // the marked areas, to list them on the report
       });
       goToScreen("report", "slide-forward");
     } catch (problem) {
@@ -332,6 +353,8 @@ function GuestPage() {
     removePhoto();
     setPhotoProblem("");
     setReport(null);
+    setTbsa(null);
+    setMapKey((key) => key + 1); // a fresh, empty body map
     goToScreen("emergency", "slide-back");
   };
 
@@ -524,14 +547,17 @@ function GuestPage() {
               </div>
             </section>
 
-            {/* ===== STEP 2: TBSA body map (placeholder for now) ===== */}
+            {/* ===== STEP 2: TBSA body map ===== */}
             <section className="guest-step">
-              <StepHeader number={2} title="Body map (TBSA)" badge="Coming soon" />
-              {/* PLACEHOLDER: the interactive Lund and Browder body map will go here. */}
-              <div className="tbsa-placeholder" aria-hidden="true">
-                <BodyOutline />
-                <BodyOutline />
-                <p>Click the burned areas on the front and back of the body</p>
+              <StepHeader number={2} title="Where is the burn?" />
+              <div id="field-tbsa" className={`field${isMissing("tbsa") ? " is-missing" : ""}`}>
+                <TbsaCalculator
+                  key={mapKey}
+                  age={form.age ? AGE_IN_YEARS[form.age] : null}
+                  depth={null} // TODO (AI): the burn depth from the photo check
+                  onChange={setTbsa}
+                />
+                {isMissing("tbsa") && <p className="field-error">Please mark the burned areas on the body map.</p>}
               </div>
             </section>
 
@@ -625,7 +651,7 @@ function GuestPage() {
    THE REPORT (looks like a sheet of paper)
    ===================================================================== */
 function Report({ report }) {
-  const { id, createdAt, emergency, form, photoUrl, result, assessedBy } = report;
+  const { id, createdAt, emergency, form, photoUrl, result, assessedBy, tbsa, bodyMap } = report;
   const decision = DECISIONS[result.decision];
   const emergencyFlag = hasEmergency(emergency);
 
@@ -716,8 +742,29 @@ function Report({ report }) {
 
       {/* ----- Burn size (TBSA) ----- */}
       <ReportSection title="Burn size (TBSA)">
-        {/* TODO: show the TBSA %, the method and the marked body map here. */}
-        <p className="report-pending">The body map will be added soon.</p>
+        <dl className="report-rows">
+          <div>
+            <dt>Estimated burn size</dt>
+            <dd>{tbsa != null ? `${formatPercent(tbsa)}% of the body` : "—"}</dd>
+          </div>
+          {bodyMap && (
+            <div>
+              <dt>Chart used</dt>
+              <dd>{bodyMap.chartLabel}</dd>
+            </div>
+          )}
+          {bodyMap?.breakdown.map((row) => (
+            <div key={row.id}>
+              <dt>{row.label}</dt>
+              <dd>
+                {formatPercent(row.percent)}% ({row.method === "whole" ? "whole area" : `${row.palms} ${row.palms === 1 ? "palm" : "palms"}`})
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p className="report-pending">
+          Counts every marked area until the photo check confirms how deep the burn is.
+        </p>
       </ReportSection>
 
       {/* ----- Burn photo ----- */}
@@ -936,20 +983,6 @@ function ChoiceButtons({ name, options, value, onChoose, variant, multiple }) {
         );
       })}
     </div>
-  );
-}
-
-// A simple body outline used in the TBSA placeholder.
-function BodyOutline() {
-  return (
-    <svg viewBox="0 0 120 200" className="tbsa-figure">
-      <circle cx="60" cy="22" r="14" />
-      <rect x="40" y="40" width="40" height="66" rx="14" />
-      <rect x="20" y="44" width="14" height="62" rx="7" />
-      <rect x="86" y="44" width="14" height="62" rx="7" />
-      <rect x="42" y="108" width="15" height="78" rx="7" />
-      <rect x="63" y="108" width="15" height="78" rx="7" />
-    </svg>
   );
 }
 

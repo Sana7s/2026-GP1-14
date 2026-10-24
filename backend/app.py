@@ -29,6 +29,7 @@ import assessments
 import auth
 import consultations
 import db
+import patient
 from config import Config
 from flask_cors import CORS
 
@@ -46,6 +47,7 @@ def create_app():
     app.register_blueprint(admin.bp)           # /api/admin/...
     app.register_blueprint(assessments.bp)     # /api/assessments/...
     app.register_blueprint(consultations.bp)   # /api/consultations/...
+    app.register_blueprint(patient.bp)         # /api/patient/...
 
 # Recovery Tracking: save and retrieve recovery timeline entries
     # mapped to table recovery_entries in PostgreSQL for TrackRecovery.jsx

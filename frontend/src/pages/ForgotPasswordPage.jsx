@@ -34,7 +34,7 @@ import CodeBoxes from "../components/CodeBoxes.jsx";
    It only works on the local dev server (npm run dev), never in the
    built website. TODO: set to false once the Flask routes are ready.
    --------------------------------------------------------------------- */
-const USE_TEST_MODE = true; // ← change to false once Flask can send emails
+const USE_TEST_MODE = false; // ← change to false once Flask can send emails
 const TEST_MODE = USE_TEST_MODE && import.meta.env.DEV;
 const TEST_CODE = "123456";
 

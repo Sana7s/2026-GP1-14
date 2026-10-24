@@ -17,8 +17,13 @@ API addresses (all start with /api/auth):
   POST /logout          log out
   GET  /me              the logged-in user (or null)
   PUT  /staff-request   staff: fix the fields the admin asked to change
+  POST /forgot-password    forgot password: email a 6-digit code
+  POST /verify-reset-code  forgot password: check the code → reset token
+  POST /reset-password     forgot password: save the new password
+  POST /change-password    signed in: change the password (needs the current one)
 """
 
+import hashlib
 import secrets
 from functools import wraps
 
@@ -28,7 +33,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import validation as v
 from db import commit, execute, query_one
-from mailer import send_email
+from mailer import code_email, send_email
 
 bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
@@ -288,13 +293,16 @@ def send_login_code(account_id, email):
         (account_id, generate_password_hash(code), CODE_MINUTES),
     )
     commit()
-    send_email(
-        email,
-        "Your BurnCare admin login code",
-        f"Your BurnCare login code is: {code}\n\n"
-        f"It works for {CODE_MINUTES} minutes. If you did not try to log in, "
-        "please change your password.",
+    text, html = code_email(
+        heading="Your admin login code",
+        intro="Someone (hopefully you) signed in to a BurnCare admin account. "
+              "Enter this code on the sign-in page to finish logging in.",
+        code=code,
+        minutes=CODE_MINUTES,
+        footer_note="If this wasn't you, your password may be known to someone else. "
+                    "Please change it as soon as possible.",
     )
+    send_email(email, f"{code} is your BurnCare login code", text, html)
 
 
 @bp.post("/verify-code")
@@ -402,3 +410,188 @@ def update_staff_request(user):
     )
     commit()
     return jsonify({"user": public_user(current_user())})
+
+
+# =====================================================================
+# FORGOT PASSWORD: email a 6-digit code, then set a new password
+# Used by ForgotPasswordPage.jsx (3 steps):
+#   POST /forgot-password    {email}                 → always the same reply
+#   POST /verify-reset-code  {email, code}           → {reset_token}
+#   POST /reset-password     {reset_token, password} → {ok: true}
+# =====================================================================
+
+RESET_TOKEN_MINUTES = 15  # time to type the new password after the code
+WRONG_RESET_CODE = "That code is incorrect or has expired."
+
+
+def token_hash(token):
+    """The reset token is long and random, so a plain SHA-256 is enough,
+    and (unlike a salted hash) it can be looked up in the database."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+@bp.post("/forgot-password")
+def forgot_password():
+    email = str((request.get_json(silent=True) or {}).get("email") or "").strip().lower()
+    problem = v.check_email(email)
+    if problem:
+        return error(problem, field="email")
+
+    # The SAME reply whether or not the email has an account, so nobody can
+    # use this page to find out who is registered.
+    reply = jsonify({"ok": True})
+
+    row = query_one("SELECT account_id, is_active FROM accounts WHERE email = %s", (email,))
+    if not row or not row["is_active"]:
+        return reply
+    # At most one email every 30 seconds.
+    if query_one(
+        """
+        SELECT 1 FROM verification_codes
+        WHERE account_id = %s AND purpose = 'password_reset' AND created_at > NOW() - INTERVAL '30 seconds'
+        """,
+        (row["account_id"],),
+    ):
+        return reply
+
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    # Old reset codes stop working when a new one is sent.
+    execute("UPDATE verification_codes SET used_at = NOW() "
+            "WHERE account_id = %s AND purpose = 'password_reset' AND used_at IS NULL",
+            (row["account_id"],))
+    execute(
+        """
+        INSERT INTO verification_codes (account_id, purpose, code_hash, expires_at)
+        VALUES (%s, 'password_reset', %s, NOW() + (%s * INTERVAL '1 minute'))
+        """,
+        (row["account_id"], generate_password_hash(code), CODE_MINUTES),
+    )
+    commit()
+    text, html = code_email(
+        heading="Reset your password",
+        intro="We received a request to reset the password for your BurnCare account. "
+              "Enter this code on the Forgot password page to choose a new one.",
+        code=code,
+        minutes=CODE_MINUTES,
+        footer_note="If you didn't ask to reset your password, you can ignore this email. "
+                    "Your password won't change.",
+    )
+    send_email(email, f"{code} is your BurnCare password reset code", text, html)
+    return reply
+
+
+@bp.post("/verify-reset-code")
+def verify_reset_code():
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email") or "").strip().lower()
+    code = str(data.get("code") or "").strip()
+    if not (code.isdigit() and len(code) == 6):
+        return error("Enter the 6-digit code from the email.", field="code")
+
+    row = query_one(
+        """
+        SELECT c.code_id, c.code_hash, c.attempts, (c.expires_at < NOW()) AS expired
+        FROM verification_codes c JOIN accounts a ON a.account_id = c.account_id
+        WHERE a.email = %s AND c.purpose = 'password_reset' AND c.used_at IS NULL
+        ORDER BY c.created_at DESC LIMIT 1
+        """,
+        (email,),
+    )
+    if not row or row["expired"] or row["attempts"] >= MAX_ATTEMPTS:
+        return error(WRONG_RESET_CODE, field="code")
+    if not check_password_hash(row["code_hash"], code):
+        execute("UPDATE verification_codes SET attempts = attempts + 1 WHERE code_id = %s",
+                (row["code_id"],))
+        commit()
+        return error(WRONG_RESET_CODE, field="code")
+
+    # Correct code: give the page a one-time token for the last step.
+    token = secrets.token_urlsafe(32)
+    execute(
+        """
+        UPDATE verification_codes
+        SET verified_at = NOW(), reset_token_hash = %s,
+            reset_token_expires_at = NOW() + (%s * INTERVAL '1 minute')
+        WHERE code_id = %s
+        """,
+        (token_hash(token), RESET_TOKEN_MINUTES, row["code_id"]),
+    )
+    commit()
+    return jsonify({"reset_token": token})
+
+
+@bp.post("/reset-password")
+def reset_password():
+    data = request.get_json(silent=True) or {}
+    token = str(data.get("reset_token") or "")
+    password = str(data.get("password") or "")
+    problem = v.check_password(password)
+    if problem:
+        return error(problem, field="password")
+
+    row = query_one(
+        """
+        SELECT code_id, account_id FROM verification_codes
+        WHERE purpose = 'password_reset' AND reset_token_hash = %s
+          AND used_at IS NULL AND reset_token_expires_at > NOW()
+        """,
+        (token_hash(token),),
+    ) if token else None
+    if not row:
+        return error("This reset session has expired. Please request a new code.")
+
+    execute("UPDATE accounts SET password_hash = %s WHERE account_id = %s",
+            (generate_password_hash(password), row["account_id"]))
+    execute("UPDATE verification_codes SET used_at = NOW() WHERE code_id = %s", (row["code_id"],))
+    commit()
+    return jsonify({"ok": True})
+
+
+# =====================================================================
+# CHANGE PASSWORD (signed in, from the Profile page)
+#   POST /change-password  {currentPassword, newPassword} → {ok: true}
+# =====================================================================
+
+@bp.post("/change-password")
+@login_required
+def change_password(user):
+    data = request.get_json(silent=True) or {}
+    current = str(data.get("currentPassword") or "")
+    new = str(data.get("newPassword") or "")
+
+    if not current:
+        return error("Please enter your current password.", field="currentPassword")
+    problem = v.check_password(new)
+    if problem:
+        return error(problem, field="newPassword")
+
+    row = query_one("SELECT password_hash FROM accounts WHERE account_id = %s", (user["account_id"],))
+    # The current password must be right, so someone using an unlocked
+    # computer can't change it.
+    if not check_password_hash(row["password_hash"], current):
+        return error("Your current password is incorrect.", field="currentPassword")
+    if check_password_hash(row["password_hash"], new):
+        return error("Choose a password that is different from your current one.", field="newPassword")
+
+    execute("UPDATE accounts SET password_hash = %s, updated_at = NOW() WHERE account_id = %s",
+            (generate_password_hash(new), user["account_id"]))
+    # Any open "forgot password" code stops working.
+    execute("UPDATE verification_codes SET used_at = NOW() "
+            "WHERE account_id = %s AND purpose = 'password_reset' AND used_at IS NULL",
+            (user["account_id"],))
+    commit()
+
+    # Tell the owner, in case it wasn't them. The password is already
+    # changed, so a problem sending the email doesn't undo it.
+    try:
+        send_email(
+            user["email"],
+            "Your BurnCare password was changed",
+            "The password for your BurnCare account was just changed.\n\n"
+            "If this was you, you don't need to do anything.\n"
+            "If it wasn't you, reset your password now with \"Forgot password?\" on the sign-in page.\n\n"
+            "— BurnCare\nThis is an automatic email. Replies to it are not read.",
+        )
+    except Exception:  # noqa: BLE001 — the change itself already worked
+        pass
+    return jsonify({"ok": True})

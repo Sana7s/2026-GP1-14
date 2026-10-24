@@ -23,7 +23,9 @@
     13. Phone & tablet adjustments (responsive design)
     14. Reduced-motion setting
     15. Forgot password page
-     16. PATIENT PAGES
+    16. PATIENT PAGES
+    17. TBSA CALCULATOR
+    18. FIRST AID GUIDE 
 
   
    ===================================================================== */
@@ -4845,6 +4847,11 @@ main {
   place-items: center;
   padding: 6px;
 }
+/* Hide Edge's built-in "show password" eye; we have our own. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
 
 /* Title on the "Password updated" screen. */
 .forgot-done h1 {
@@ -5870,3 +5877,937 @@ main {
 @keyframes dash-move {
   to { stroke-dashoffset: -18; }
 }
+/* Patient pages: additions for the connected homepage */
+.tone-pending { background: #b9b2b5; box-shadow: 0 0 0 4px rgba(185, 178, 181, 0.2); }
+
+/* "Log out" is now a button (it ends the session), so make it look like the menu links */
+button.account-menu-item {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Cards for features that come in Sprint 2 (recovery, chat):
+   same layout, but faded and not clickable. */
+.patient-card.is-upcoming .recovery-photos,
+.patient-card.is-upcoming .chat-suggestions,
+.patient-card.is-upcoming .chat-form {
+  opacity: 0.55;
+}
+.patient-card.is-upcoming button:disabled,
+.patient-card.is-upcoming input:disabled {
+  cursor: not-allowed;
+}
+
+/* A single button whose feature comes in Sprint 2 (e.g. "Add today's note") */
+.is-upcoming-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---------- Change password page (ChangePasswordPage.jsx) ---------- */
+.password-header h1 {
+  margin: 8px 0 4px;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.password-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.password-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--rose);
+  font-size: var(--text-small);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.password-fields {
+  display: grid;
+  gap: 18px;
+}
+
+.password-show {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  cursor: pointer;
+}
+
+.password-show input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--coral);
+}
+
+/* "Password changed" card */
+.password-done {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.password-done h1 {
+  margin: 4px 0 0;
+  font-size: var(--text-card);
+}
+
+.password-done p {
+  max-width: 380px;
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  line-height: 1.6;
+}
+
+.password-done-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+/* ---------- Profile page: connected version ---------- */
+.profile-loading {
+  max-width: 640px;
+  margin: 40px auto;
+  text-align: center;
+}
+
+/* "+966" inside the phone box, before the number. */
+.input-prefix {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: var(--text-body);
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.text-input.has-prefix input {
+  padding-left: 62px;
+}
+
+/* The email can't be changed here. */
+.text-input.is-readonly input {
+  color: var(--muted);
+  background: var(--blush-soft);
+  cursor: default;
+}
+
+/* =====================================================================
+   17. TBSA CALCULATOR
+   The body map, region panel and TBSA output (TbsaCalculator), and the
+   /tbsa page that runs the whole flowchart. Reuses the Guest page step
+   layout (.guest-step) and the Register field styles (.field ...).
+   ===================================================================== */
+
+.tbsa-container {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+/* ---------- Step 1: photo + AI depth ---------- */
+.tbsa-photo-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.tbsa-photo {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1.5px dashed var(--pink);
+  border-radius: var(--card-radius);
+  background: var(--white);
+  cursor: pointer;
+  transition: border-color 200ms ease, background 200ms ease;
+}
+
+.tbsa-photo:hover {
+  border-color: var(--coral);
+  background: var(--blush-soft);
+}
+
+.tbsa-photo:has(input:focus-visible) {
+  outline: 3px solid rgba(217, 67, 77, 0.45);
+  outline-offset: 4px;
+}
+
+.tbsa-photo.has-photo {
+  border-style: solid;
+}
+
+.tbsa-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tbsa-photo-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--rose);
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.tbsa-photo-empty small {
+  color: var(--muted);
+  font-size: var(--text-label);
+  font-weight: 400;
+}
+
+.tbsa-depth {
+  display: grid;
+  gap: 12px;
+}
+
+.tbsa-depth .forgot-test-note {
+  margin: 0;
+}
+
+.tbsa-depth-wait {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.tbsa-depth-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tbsa-depth-option {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--white);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.tbsa-depth-option strong {
+  font-size: var(--text-body);
+}
+
+.tbsa-depth-option span {
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+
+.tbsa-depth-option:hover {
+  border-color: var(--pink);
+}
+
+.tbsa-depth-option.is-selected {
+  border: 1.5px solid var(--coral);
+  background: var(--blush);
+}
+
+.tbsa-depth-option.is-selected strong {
+  color: var(--rose);
+}
+
+/* ---------- Step 2: age ---------- */
+.tbsa-age {
+  max-width: 320px;
+}
+
+/* ---------- Calculator ---------- */
+.tbsa-chart-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin-bottom: 16px;
+}
+
+.tbsa-chart {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--blush);
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+}
+
+.tbsa-chart strong {
+  color: var(--rose);
+}
+
+.tbsa-chart-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--coral);
+}
+
+.tbsa-chart-empty {
+  background: var(--blush-soft);
+  color: var(--muted);
+}
+
+.tbsa-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+
+/* Map on the left, panel + output on the right. */
+.tbsa-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+/* ---------- Body map ---------- */
+.body-map {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 16px 8px 8px;
+  border-radius: var(--card-radius);
+  background: var(--blush-soft);
+  transition: opacity 250ms ease;
+}
+
+.body-map.is-disabled {
+  opacity: 0.5;
+}
+
+.body-map.is-disabled .body-region {
+  cursor: not-allowed;
+}
+
+.body-view {
+  margin: 0;
+}
+
+.body-view svg {
+  display: block;
+  width: 100%;
+  max-height: 440px;
+}
+
+.body-view figcaption {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Each region: white with a pink outline. */
+.body-region {
+  cursor: pointer;
+  outline: none;
+}
+
+.body-region > * {
+  fill: var(--white);
+  stroke: var(--pink);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  transition: fill 200ms ease, stroke 200ms ease;
+}
+
+/* Face, hands and feet: a little darker outline so they read as parts. */
+.body-region.is-part > * {
+  stroke: #eab8bc;
+  stroke-dasharray: 3 2;
+}
+
+.body-region:hover > *,
+.body-region:focus-visible > * {
+  fill: var(--blush);
+  stroke: var(--coral);
+}
+
+/* Whole area burned: solid coral. */
+.body-region.is-whole > * {
+  fill: var(--coral);
+  stroke: var(--rose);
+}
+
+/* Part of it (palms): coral dots. */
+.body-region.is-palms > * {
+  fill: var(--palm-fill, var(--pink));
+  stroke: var(--coral);
+}
+
+.palm-dots-bg { fill: var(--blush); }
+.palm-dots-dot { fill: var(--coral); }
+
+/* The region open in the panel. */
+.body-region.is-active > * {
+  stroke-width: 2.6;
+}
+
+/* 1st-degree burns are shown, but faded (not counted). */
+.body-map.is-not-counted .body-region.is-whole > * {
+  fill: #f2b8bb;
+}
+
+.body-label {
+  fill: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  /* White outline so the number stays readable on coral areas. */
+  paint-order: stroke;
+  stroke: var(--white);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+/* Smaller numbers on the small areas (neck, hands, feet, genitals). */
+.body-label.is-small {
+  font-size: 7.5px;
+  stroke-width: 2px;
+}
+
+/* ---------- Side panel ---------- */
+.tbsa-side {
+  display: grid;
+  gap: 14px;
+}
+
+.tbsa-panel {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--card-radius);
+  background: var(--white);
+  animation: rise-in 300ms var(--ease-out) both;
+}
+
+.tbsa-panel-empty p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  line-height: 1.6;
+}
+
+.tbsa-palm-tip {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px !important;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--blush-soft);
+  color: var(--ink-soft);
+}
+
+.tbsa-palm-tip svg {
+  flex: none;
+  color: var(--rose);
+}
+
+.tbsa-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.tbsa-panel-head h3 {
+  margin: 0;
+  font-size: var(--text-sub);
+  font-weight: 600;
+}
+
+.tbsa-close {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Whole area / Part of it switch. */
+.tbsa-method {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--blush-soft);
+}
+
+.tbsa-method button {
+  display: grid;
+  gap: 1px;
+  padding: 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tbsa-method button span {
+  color: var(--muted);
+  font-size: var(--text-tiny);
+  font-weight: 500;
+}
+
+.tbsa-method button.is-selected {
+  background: var(--white);
+  color: var(--rose);
+  box-shadow: 0 2px 8px rgba(100, 35, 40, 0.12);
+}
+
+/* − 3 palms + */
+.palm-counter {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.palm-counter button {
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--rose);
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.palm-counter button:hover:not(:disabled) {
+  border-color: var(--coral);
+  background: var(--blush-soft);
+}
+
+.palm-counter button:disabled {
+  color: var(--line);
+  cursor: default;
+}
+
+.palm-counter p {
+  margin: 0;
+  font-size: var(--text-body);
+}
+
+.palm-counter p strong {
+  font-size: 20px;
+}
+
+.palm-counter p span {
+  color: var(--muted);
+}
+
+.palm-cap {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: var(--text-label) !important;
+}
+
+/* Face, hands, feet or genitals marked: BBA special areas. */
+.tbsa-special {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: var(--text-small);
+}
+
+.tbsa-remove {
+  margin-top: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-label);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.tbsa-remove:hover {
+  color: var(--rose);
+}
+
+/* ---------- Output ---------- */
+.tbsa-output {
+  padding: 18px;
+  border-radius: var(--card-radius);
+  background: var(--ink);
+  color: var(--white);
+}
+
+.tbsa-output-label {
+  margin: 0;
+  color: var(--pink);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.tbsa-total {
+  margin: 4px 0 10px;
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.tbsa-total span {
+  margin-left: 2px;
+  color: var(--pink);
+  font-size: 22px;
+}
+
+.tbsa-meter {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.tbsa-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--coral);
+  transition: width 500ms var(--ease-out);
+}
+
+.tbsa-note {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+
+.tbsa-breakdown {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tbsa-breakdown li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: var(--text-small);
+}
+
+.tbsa-breakdown li > span {
+  display: grid;
+}
+
+.tbsa-breakdown small {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: var(--text-tiny);
+}
+
+.tbsa-breakdown .is-muted {
+  color: rgba(255, 255, 255, 0.4);
+  text-decoration: line-through;
+}
+
+.tbsa-output-foot {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: var(--text-tiny);
+}
+
+.tbsa-disclaimer {
+  margin: 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--text-label);
+  text-align: center;
+}
+
+/* ---------- Tablets and phones ---------- */
+@media (max-width: 760px) {
+  .tbsa-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .tbsa-photo-row {
+    grid-template-columns: 1fr;
+  }
+
+  .tbsa-photo {
+    max-width: 240px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tbsa-depth-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =====================================================================
+   18. FIRST AID GUIDE  (pages/FirstAidPage.jsx, /patient/first-aid)
+   ===================================================================== */
+.first-aid-header {
+  padding: 8px 4px 4px;
+}
+
+.first-aid-kicker {
+  margin: 0 0 6px;
+  color: var(--rose);
+  font-size: var(--text-label);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.first-aid-header h1 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: var(--text-title);
+  line-height: 1.2;
+}
+
+.first-aid-lead {
+  max-width: 640px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-lead);
+  line-height: 1.6;
+}
+
+/* ---------- Call 997 ---------- */
+.first-aid-call {
+  padding: 22px 24px;
+  border: 1.5px solid var(--coral);
+  border-radius: var(--card-radius);
+  background: var(--blush);
+}
+
+.first-aid-call-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.first-aid-call-icon {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--rose);
+  color: var(--white);
+  font-weight: 800;
+}
+
+.first-aid-call h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-card);
+}
+
+.first-aid-call h2 span {
+  color: var(--rose);
+}
+
+.first-aid-call ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--ink);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+.first-aid-call-note {
+  margin: 12px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
+/* ---------- 5 steps ---------- */
+.first-aid-steps {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.first-aid-steps li {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.first-aid-step-number {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blush);
+  color: var(--rose);
+  font-weight: 800;
+}
+
+.first-aid-steps h3 {
+  margin: 6px 0 4px;
+  color: var(--ink);
+  font-size: var(--text-sub);
+}
+
+.first-aid-steps p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  line-height: 1.6;
+}
+
+.first-aid-steps .first-aid-highlight {
+  display: inline-block;
+  margin: 2px 0 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--rose);
+  color: var(--white);
+  font-size: var(--text-label);
+  font-weight: 700;
+}
+
+/* ---------- Never put on a burn ---------- */
+.first-aid-dont {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.first-aid-dont li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: var(--text-body);
+}
+
+.first-aid-dont svg {
+  flex: none;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--blush);
+  color: var(--rose);
+}
+
+/* ---------- Chemical / electrical ---------- */
+.first-aid-special + .first-aid-special {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.first-aid-special h3 {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: var(--text-sub);
+}
+
+.first-aid-special ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+/* ---------- Then check the burn ---------- */
+.first-aid-next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.first-aid-next h2 {
+  margin: 0 0 4px;
+  font-size: var(--text-card);
+}
+
+.first-aid-next p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+}
+
+.first-aid-source {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+  text-align: center;
+}
+
+.first-aid-call .first-aid-today-title {
+  margin: 18px 0 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--pink);
+  font-size: var(--text-sub);
+}
+

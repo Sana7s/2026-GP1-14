@@ -16,7 +16,7 @@
      • staff@burncare.test → healthcare staff → home page (for now)
      • any other email     → patient → /patient
      • password "wrong"    → "The email or password is incorrect."       */
-const USE_TEST_MODE = true; // ← change to false once Flask is running
+const USE_TEST_MODE = false; // ← change to false once Flask is running
 export const TEST_MODE = USE_TEST_MODE && import.meta.env.DEV;
 export const TEST_ADMIN_EMAIL = "admin@burncare.test";
 export const TEST_STAFF_EMAIL = "staff@burncare.test";
@@ -41,6 +41,7 @@ export async function api(path, { method = "GET", body } = {}) {
   if (!response.ok) {
     const error = new Error(data.error || "Sign-in isn't connected to the server yet. Please try again later.");
     error.status = response.status;
+    error.field = data.field; // which box the problem is about, e.g. "email"
     throw error;
   }
   return data;

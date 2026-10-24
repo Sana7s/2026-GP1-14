@@ -7,33 +7,62 @@
      2. My reports            |  3. Recovery tracking
      4. Wound-care chat
      5. First aid for a new burn
+   Where the information comes from:
+     - name           → the signed-in account (from PatientTopBar)
+     - My reports     → Flask, GET /api/assessments/mine (database)
+     - Recovery tracking → opens the Recovery page (TrackRecovery.jsx).
+       Recovery NOTES come in Sprint 2 ("Add today's note" is switched off).
+     - Wound-care chat → SPRINT 2. The card keeps its place and layout.
    Styles: section "10. PATIENT PAGES" in styles.css.
    ===================================================================== */
 
-import { useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useOutletContext } from "react-router-dom";
 import { Chevron } from "../components/Chevron.jsx";
-// Sample data until Flask is connected (see patientData.js).
-import { DEMO_PATIENT, DEMO_RECOVERY, DEMO_REPORTS, RESULT_LEVELS } from "../patientData.js";
+import { api } from "../auth.js";
+import { RESULT_LEVELS } from "../patientData.js";
+
+const REPORTS_SHOWN = 3; // newest reports on the home page; "See all" shows the rest
+
+// "23 Oct 2026, 14:40" (from Flask) → "23 Oct 2026"
+const dayOnly = (text) => String(text || "").split(",")[0];
 
 // Suggested questions under the chat box.
 const CHAT_SUGGESTIONS = ["When should I see a doctor?", "How do I change a dressing?", "Signs of infection"];
 
 function PatientHomePage() {
-  const patient = DEMO_PATIENT;
-  const reports = DEMO_REPORTS;
-  const recovery = DEMO_RECOVERY;
+  const { account } = useOutletContext(); // the signed-in patient (PatientTopBar)
+  const firstName = account.fullName.trim().split(/\s+/)[0];
+
+  // null = still loading, "error" = couldn't load, otherwise the list from Flask.
+  const [reports, setReports] = useState(null);
+
+  // Load this patient's reports from the database once.
+  useEffect(() => {
+    let isCurrent = true;
+    api("/api/assessments/mine")
+      .then((data) => {
+        if (isCurrent) setReports(data.assessments ?? []);
+      })
+      .catch(() => {
+        if (isCurrent) setReports("error");
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
   return (
-    <div className="patient-page">
+    <div className="patient-home">
+      <div className="patient-page">
       {/* ===== 1. Check a new burn ===== */}
       <section className="patient-card patient-hero" aria-labelledby="hero-title">
         <div className="patient-hero-copy">
-          <p className="patient-welcome">Welcome back, {patient.name.split(" ")[0]}</p>
+          <p className="patient-welcome">Welcome back, {firstName}</p>
           <h1 id="hero-title">Check a new burn</h1>
           <p className="patient-hero-text">
-            Answer a few questions, mark the burn on a body map and add one photo. BurnCare tells you whether to
-            go to a burn unit, see a doctor, or treat it at home.
+            Answer a few questions, mark the burn on a body map and add one photo. BurnCare tells you whether it
+            needs a burn unit, a nearby clinic or hospital, or only first aid at home.
           </p>
           <div className="patient-hero-actions">
             <Link to="/patient/assessment" className="button button-primary">
@@ -58,23 +87,31 @@ function PatientHomePage() {
             </Link>
           </div>
 
-          {reports.length > 0 ? (
+          {reports === null && <p className="patient-empty">Loading your reports…</p>}
+          {reports === "error" && (
+            <p className="patient-empty">We couldn&apos;t load your reports. Please refresh the page.</p>
+          )}
+          {Array.isArray(reports) && reports.length === 0 && (
+            <p className="patient-empty">No reports yet. Your results will appear here after an assessment.</p>
+          )}
+          {Array.isArray(reports) && reports.length > 0 && (
             <ul className="report-list">
-              {reports.map((report) => {
-                const level = RESULT_LEVELS[report.level];
+              {reports.slice(0, REPORTS_SHOWN).map((report) => {
+                const level = RESULT_LEVELS[report.decision] ?? RESULT_LEVELS.pending;
+                const date = dayOnly(report.createdAt);
                 return (
                   <li key={report.id} className="report-row">
                     <span className={`report-dot tone-${level.tone}`} aria-hidden="true" />
                     <div className="report-info">
                       <p className="report-level">{level.label}</p>
                       <p className="report-meta">
-                        {report.date} · {report.area}
+                        {date} · {report.cause}
                       </p>
                     </div>
                     <Link
                       to={`/patient/reports/${report.id}`}
                       className="patient-card-link"
-                      aria-label={`View report from ${report.date}, ${report.area}`}
+                      aria-label={`View report ${report.id} from ${date}`}
                     >
                       View
                     </Link>
@@ -82,14 +119,12 @@ function PatientHomePage() {
                 );
               })}
             </ul>
-          ) : (
-            <p className="patient-empty">No reports yet. Your results will appear here after an assessment.</p>
           )}
 
           <p className="patient-note">Each report can be downloaded as a PDF to show a doctor.</p>
         </section>
 
-        {/* ===== 3. Recovery tracking ===== */}
+        {/* ===== 3. Recovery tracking (notes come in Sprint 2) ===== */}
         <section className="patient-card" aria-labelledby="recovery-title">
           <div className="patient-card-head">
             <h2 id="recovery-title">Recovery tracking</h2>
@@ -99,15 +134,20 @@ function PatientHomePage() {
           </div>
 
           <p className="recovery-day">
-            Day <strong>{recovery.day}</strong> since your burn on {recovery.burnDate}
+            Follow how your burn heals: add a photo and a short note every few days, and compare them over time.
           </p>
 
           <div className="recovery-photos">
-            <RecoveryPhoto label="First photo" src={recovery.firstPhoto} />
-            <RecoveryPhoto label="Latest photo" src={recovery.latestPhoto} />
-            <Link to="/patient/recovery" className="button button-secondary">
-              Add today&apos;s note
-            </Link>
+            <RecoveryPhoto label="First photo" />
+            <RecoveryPhoto label="Latest photo" />
+            <button
+              type="button"
+              className="button button-secondary is-upcoming-button"
+              disabled
+              title="Recovery notes are coming in Sprint 2"
+            >
+              Add today&apos;s note · Sprint 2
+            </button>
             <Link to="/patient/recovery" className="button button-secondary">
               Add a photo
             </Link>
@@ -138,74 +178,50 @@ function PatientHomePage() {
           Full first-aid guide <Chevron />
         </Link>
       </section>
+      </div>
     </div>
   );
 }
 
-// Chat box: suggested questions fill the box; "Ask" opens the chat page
-// with the question. TODO: build the chat page (/patient/chat).
+// Wound-care chat (Sprint 2): the same layout as the final chat box, but
+// switched off, so the space is kept on the page.
 function WoundCareChat() {
-  const navigate = useNavigate();
-  const inputRef = useRef(null);
-  const [question, setQuestion] = useState("");
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    if (!question.trim()) {
-      inputRef.current?.focus();
-      return;
-    }
-    navigate("/patient/chat", { state: { question: question.trim() } });
-  };
-
   return (
-    <section className="patient-card" aria-labelledby="chat-title">
+    <section className="patient-card is-upcoming" aria-labelledby="chat-title">
       <div className="patient-card-head">
         <h2 id="chat-title">Wound-care chat</h2>
+        <span className="soon-badge">Coming in Sprint 2</span>
       </div>
-      <p className="patient-card-text">Ask about dressings, cleaning, signs of infection or recovery.</p>
+      <p className="patient-card-text">
+        Soon you can ask about dressings, cleaning, signs of infection or recovery here.
+      </p>
 
       <div className="chat-suggestions">
         {CHAT_SUGGESTIONS.map((text) => (
-          <button
-            key={text}
-            type="button"
-            className={`chat-chip${question === text ? " is-selected" : ""}`}
-            onClick={() => {
-              setQuestion(text);
-              inputRef.current?.focus();
-            }}
-          >
+          <button key={text} type="button" className="chat-chip" disabled>
             {text}
           </button>
         ))}
       </div>
 
-      <form className="chat-form" onSubmit={handleSubmit}>
+      <div className="chat-form">
         <label className="visually-hidden" htmlFor="chat-question">
           Your question
         </label>
         <div className="text-input">
-          <input
-            id="chat-question"
-            ref={inputRef}
-            type="text"
-            placeholder="Type your question"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            autoComplete="off"
-          />
+          <input id="chat-question" type="text" placeholder="Available in Sprint 2" disabled />
         </div>
-        <button type="submit" className="button button-dark">
+        <button type="button" className="button button-dark" disabled>
           Ask
         </button>
-      </form>
+      </div>
     </section>
   );
 }
 
-// One photo box. Shows the photo, or an empty placeholder.
-function RecoveryPhoto({ label, src }) {
+// One photo box. Shows the photo, or a placeholder with a caption
+// (e.g. the entry date), or "not added yet".
+function RecoveryPhoto({ label, src, caption }) {
   return (
     <figure className={`recovery-photo${src ? " has-photo" : ""}`}>
       {src ? (
@@ -215,7 +231,7 @@ function RecoveryPhoto({ label, src }) {
           <CameraIcon />
         </span>
       )}
-      <figcaption>{src ? label : `${label} — not added yet`}</figcaption>
+      <figcaption>{src ? label : caption || `${label} — not added yet`}</figcaption>
     </figure>
   );
 }

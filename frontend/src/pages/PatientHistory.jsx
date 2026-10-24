@@ -1,50 +1,48 @@
 /* =====================================================================
    BurnCare — pages/PatientHistory.jsx
    Patient assessment history matching BBA decision cards & styles.css
+   ---------------------------------------------------------------------
+   The list comes from the database: GET /api/assessments/mine
+   (newest first, only the signed-in patient's own assessments).
    ===================================================================== */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../auth.js";
+import { RESULT_LEVELS } from "../patientData.js";
+
+// Badge colours for each result (background, text).
+const BADGE = {
+  urgent: ["var(--blush)", "var(--rose)"],
+  soon: ["#fdf3e2", "#9a6412"],
+  home: ["#e8f5e9", "#2e7d32"],
+  pending: ["#f1eff0", "#5f5a5d"],
+};
 
 function PatientHistory() {
-  // Load the saved assessments once, when the page opens.
-  const [records] = useState(() => JSON.parse(localStorage.getItem("bc_assessments_store") || "[]"));
+  // null = loading, "error" = couldn't load, otherwise the list from Flask.
+  const [records, setRecords] = useState(null);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(null);
 
+  // Load the patient's assessments from the database once.
   useEffect(() => {
-    const fetchHistoryFromBackend = async () => {
-      try {
-        setLoading(true);
-        setFetchError(null);
-
-        const response = await fetch("http://localhost:5000/api/assessments");
-        const data = await response.json();
-
-        if (response.ok) {
-          // Normalize API response to handle list of assessments
-          const assessmentList = Array.isArray(data) ? data : data.assessments || [];
-          setRecords(assessmentList);
-        } else {
-          setFetchError(data.error || "Failed to retrieve assessments.");
-        }
-      } catch (err) {
-        console.error("Network error fetching assessments:", err);
-        setFetchError("Unable to connect to Flask server. Please ensure port 5000 is running.");
-      } finally {
-        setLoading(false);
-      }
+    let isCurrent = true;
+    api("/api/assessments/mine")
+      .then((data) => {
+        if (isCurrent) setRecords(data.assessments ?? []);
+      })
+      .catch(() => {
+        if (isCurrent) setRecords("error");
+      });
+    return () => {
+      isCurrent = false;
     };
-
-    fetchHistoryFromBackend();
   }, []);
 
-  const filtered = records.filter((r) => {
+  const filtered = (Array.isArray(records) ? records : []).filter((r) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    const reportId = r.report_code || r.id || "";
-    return String(reportId).toLowerCase().includes(q);
+    return String(r.id || "").toLowerCase().includes(q);
   });
 
   return (
@@ -69,7 +67,7 @@ function PatientHistory() {
                 <input
                   id="hist-search"
                   type="search"
-                  placeholder="e.g. BC-261022-..."
+                  placeholder="e.g. BC-261021-..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -78,84 +76,60 @@ function PatientHistory() {
           </div>
 
           <div>
-            {loading && (
+            {records === null || records === "error" || filtered.length === 0 ? (
               <p style={{ margin: "30px 0", color: "var(--muted)", textAlign: "center" }}>
-                Loading assessments from database...
+                {records === null && "Loading your assessments…"}
+                {records === "error" && "We couldn't load your assessments. Please refresh the page."}
+                {Array.isArray(records) &&
+                  (records.length === 0 ? "No assessments logged yet." : "No report matches this ID.")}
               </p>
-            )}
-
-            {fetchError && (
-              <p style={{ margin: "30px 0", color: "var(--rose)", textAlign: "center" }}>
-                {fetchError}
-              </p>
-            )}
-
-            {!loading && !fetchError && filtered.length === 0 && (
-              <p style={{ margin: "30px 0", color: "var(--muted)", textAlign: "center" }}>
-                No assessments logged yet.
-              </p>
-            )}
-
-            {!loading && !fetchError && filtered.map((r) => {
-              const reportId = r.report_code || r.id;
-              const decisionValue = r.decision || r.result?.decision || "";
-              const isBurnUnit = decisionValue === "burn_unit" || decisionValue === "burn-unit";
-              const createdDate = r.created_at || r.createdAt;
-              const imageName = r.photo_filename || r.image_name || r.imageName || "Uploaded Photo";
-              const ageValue = r.age_group || r.form?.age || "—";
-              const causeValue = r.cause || r.form?.cause || "—";
-              const circValue = r.circumferential || r.form?.circumferential || "—";
-
-              // Handle reasons array whether returned at top level or nested
-              const reasonsList = r.reasons || r.result?.reasons || [];
-
-              return (
-                <article
-                  key={reportId}
-                  style={{
-                    padding: "24px",
-                    borderRadius: "var(--card-radius)",
-                    background: "var(--white)",
-                    border: "1px solid var(--line)",
-                    boxShadow: "var(--card-shadow)",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: "8px" }}>
-                    <h3 style={{ margin: 0, fontSize: "var(--text-card)", color: "var(--rose)" }}>
-                      {reportId}
-                    </h3>
-                    <span
-                      className="soon-badge"
-                      style={{
-                        background: isBurnUnit ? "var(--blush)" : "#e8f5e9",
-                        color: isBurnUnit ? "var(--rose)" : "#2e7d32",
-                      }}
-                    >
-                      {isBurnUnit ? "Treat at a Burn Unit" : "Treat Locally"}
-                    </span>
-                  </div>
-
-                  <p style={{ margin: "4px 0 16px", color: "var(--muted)", fontSize: "var(--text-small)" }}>
-                    {createdDate ? new Date(createdDate).toLocaleString() : "—"} · Image: {imageName}
-                  </p>
-
-                  <dl className="guest-summary" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-                    <div><dt>Age</dt><dd>{ageValue}</dd></div>
-                    <div><dt>Cause</dt><dd>{causeValue}</dd></div>
-                    <div><dt>Circumferential</dt><dd>{circValue}</dd></div>
-                  </dl>
-
-                  {reasonsList.length > 0 && (
-                    <div style={{ marginTop: "16px", padding: "10px 14px", background: "var(--blush-soft)", borderRadius: "8px" }}>
-                      <p style={{ margin: 0, fontSize: "var(--text-label)", color: "var(--ink-soft)" }}>
-                        <strong>Reason:</strong> {Array.isArray(reasonsList) ? reasonsList.join(" · ") : reasonsList}
-                      </p>
+            ) : (
+              filtered.map((r) => {
+                const level = RESULT_LEVELS[r.decision] ?? RESULT_LEVELS.pending;
+                const [badgeBackground, badgeColor] = BADGE[level.tone];
+                return (
+                  <article
+                    key={r.id}
+                    style={{
+                      padding: "24px",
+                      borderRadius: "var(--card-radius)",
+                      background: "var(--white)",
+                      border: "1px solid var(--line)",
+                      boxShadow: "var(--card-shadow)",
+                      marginBottom: "20px",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: "8px" }}>
+                      <h3 style={{ margin: 0, fontSize: "var(--text-card)", color: "var(--rose)" }}>{r.id}</h3>
+                      <span
+                        className="soon-badge"
+                        style={{ background: badgeBackground, color: badgeColor }}
+                      >
+                        {level.label}
+                      </span>
                     </div>
-                  )}
-                </article>
-              );
-            })}
+
+                    <p style={{ margin: "4px 0 16px", color: "var(--muted)", fontSize: "var(--text-small)" }}>
+                      {r.createdAt}
+                    </p>
+
+                    <dl className="guest-summary" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+                      <div><dt>Age</dt><dd>{r.age || "—"}</dd></div>
+                      <div><dt>Cause</dt><dd>{r.cause || "—"}</dd></div>
+                      <div><dt>Circumferential</dt><dd>{r.circumferential || "—"}</dd></div>
+                    </dl>
+
+                    {r.reasons?.length > 0 && (
+                      <div style={{ marginTop: "16px", padding: "10px 14px", background: "var(--blush-soft)", borderRadius: "8px" }}>
+                        <p style={{ margin: 0, fontSize: "var(--text-label)", color: "var(--ink-soft)" }}>
+                          <strong>Reason:</strong> {r.reasons.join(" · ")}
+                        </p>
+                      </div>
+                    )}
+                  </article>
+                );
+              })
+            )}
           </div>
         </section>
       </div>
