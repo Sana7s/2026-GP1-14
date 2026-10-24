@@ -10,6 +10,8 @@ const MAX_PHOTO_MB = 10;
 
 function TrackRecovery() {
   const [entries, setEntries] = useState([]);
+  const [assessmentList, setAssessmentList] = useState([]);
+  const [selectedReport, setSelectedReport] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [photo, setPhoto] = useState(null);
   const [photoUrl, setPhotoUrl] = useState("");
@@ -17,15 +19,37 @@ function TrackRecovery() {
   const [hasFever, setHasFever] = useState("No");
   const [increasingRedness, setIncreasingRedness] = useState("No");
   const [problem, setProblem] = useState("");
+  const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
 
-  const fetchTimeline = () => {
-    const local = JSON.parse(localStorage.getItem("bc_recovery_store") || "[]");
-    setEntries(local.sort((a, b) => b.date.localeCompare(a.date)));
-  };
-
+  // Fetch timeline entries & previous assessment IDs
   useEffect(() => {
-    fetchTimeline();
+    const fetchInitialData = async () => {
+      try {
+        // 1. Fetch assessments to populate dropdown
+        const resAssessments = await fetch("http://localhost:5000/api/assessments");
+        if (resAssessments.ok) {
+          const assessmentsData = await resAssessments.json();
+          const list = Array.isArray(assessmentsData) ? assessmentsData : [];
+          setAssessmentList(list);
+          if (list.length > 0) {
+            // Automatically select the latest assessment code
+            setSelectedReport(list[0].report_code || list[0].id || "");
+          }
+        }
+
+        // 2. Fetch recovery timeline entries
+        const resRecovery = await fetch("http://localhost:5000/api/recovery");
+        if (resRecovery.ok) {
+          const recoveryData = await resRecovery.json();
+          setEntries(recoveryData);
+        }
+      } catch (err) {
+        console.error("Failed to load initial recovery data:", err);
+      }
+    };
+
+    fetchInitialData();
   }, []);
 
   const choosePhoto = (file) => {
@@ -49,41 +73,46 @@ function TrackRecovery() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!photo) {
       setProblem("Please choose a follow-up photo.");
       return;
     }
 
-    const recId =
-      "REC-" +
-      (crypto.randomUUID
-        ? crypto.randomUUID().slice(0, 8).toUpperCase()
-        : Math.random().toString(36).substring(2, 10).toUpperCase());
+    try {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append("date", date);
+      formData.append("reportCode", selectedReport);
+      formData.append("photo", photo);
+      formData.append("notes", notes.trim());
+      formData.append("hasFever", hasFever);
+      formData.append("increasingRedness", increasingRedness);
 
-    const warningTriggered = hasFever === "Yes" || increasingRedness === "Yes";
+      const response = await fetch("http://localhost:5000/api/recovery", {
+        method: "POST",
+        body: formData,
+      });
 
-    const payload = {
-      id: recId,
-      date,
-      imageName: photo.name,
-      notes: notes.trim(),
-      hasFever,
-      increasingRedness,
-      warningTriggered,
-    };
-
-    const store = JSON.parse(localStorage.getItem("bc_recovery_store") || "[]");
-    const updated = [payload, ...store];
-    localStorage.setItem("bc_recovery_store", JSON.stringify(updated));
-
-    setEntries(updated.sort((a, b) => b.date.localeCompare(a.date)));
-    removePhoto();
-    setNotes("");
-    setHasFever("No");
-    setIncreasingRedness("No");
-    setProblem("");
+      if (response.ok) {
+        const savedEntry = await response.json();
+        setEntries((prev) => [savedEntry, ...prev]);
+        removePhoto();
+        setNotes("");
+        setHasFever("No");
+        setIncreasingRedness("No");
+        setProblem("");
+      } else {
+        const errData = await response.json();
+        setProblem(errData.error || "Failed to save recovery record.");
+      }
+    } catch (err) {
+      console.error("Network error saving recovery entry:", err);
+      setProblem("Could not connect to server. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -107,6 +136,30 @@ function TrackRecovery() {
 
             <div className="field-grid">
               <div className="field">
+                <label className="field-label" htmlFor="rec-report">
+                  Linked Assessment Report
+                </label>
+                <select
+                  id="rec-report"
+                  value={selectedReport}
+                  onChange={(e) => setSelectedReport(e.target.value)}
+                >
+                  {assessmentList.length === 0 ? (
+                    <option value="">No previous assessments found</option>
+                  ) : (
+                    assessmentList.map((item) => {
+                      const code = item.report_code || item.id;
+                      return (
+                        <option key={code} value={code}>
+                          {code} — {item.cause || "Assessment"}
+                        </option>
+                      );
+                    })
+                  )}
+                </select>
+              </div>
+
+              <div className="field">
                 <label className="field-label" htmlFor="rec-date">
                   Observation Date <span className="required-mark">*</span>
                 </label>
@@ -121,7 +174,7 @@ function TrackRecovery() {
                 </div>
               </div>
 
-              <div className="field">
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <span className="field-label">Follow-up Photo <span className="required-mark">*</span></span>
                 {photoUrl ? (
                   <div className="photo-preview">
@@ -180,7 +233,7 @@ function TrackRecovery() {
                 </div>
               </div>
 
-              <div className="field">
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label className="field-label" htmlFor="rec-notes">Observation Notes (optional)</label>
                 <div className="text-input">
                   <input
@@ -194,8 +247,8 @@ function TrackRecovery() {
             </div>
 
             <div className="guest-submit" style={{ borderTop: "none", paddingTop: "24px" }}>
-              <button type="submit" className="button button-primary button-wide">
-                Save Follow-up
+              <button type="submit" className="button button-primary button-wide" disabled={loading}>
+                {loading ? "Saving..." : "Save Follow-up"}
               </button>
             </div>
           </section>
@@ -234,7 +287,7 @@ function TrackRecovery() {
                     )}
                   </div>
                   <p style={{ margin: "6px 0", color: "var(--muted)", fontSize: "var(--text-small)" }}>
-                    Photo: {item.imageName}
+                    Photo: {item.imageName || "Follow-up Image"}
                   </p>
                   <p style={{ margin: "8px 0 0", fontSize: "var(--text-body)" }}>
                     {item.notes || "No notes logged for this entry."}

@@ -77,18 +77,6 @@ const isChild = (age) => age !== "" && age !== ADULT;
 const hasEmergency = (emergency) =>
   Object.values(emergency).some((value) => EMERGENCY_ANSWERS.includes(value));
 
-function makeReportId() {
-  const now = new Date();
-  const date = [now.getFullYear() % 100, now.getMonth() + 1, now.getDate()]
-    .map((n) => String(n).padStart(2, "0"))
-    .join("");
-  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const random = new Uint32Array(5);
-  crypto.getRandomValues(random);
-  const code = Array.from(random, (n) => letters[n % letters.length]).join("");
-  return `BC-${date}-${code}`;
-}
-
 function decideResult(emergency, form) {
   const reasons = [];
 
@@ -149,6 +137,7 @@ function PatientEntry() {
   const [showAlert, setShowAlert] = useState(false);
   const [report, setReport] = useState(null);
   const [dragging, setDragging] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
   const child = isChild(form.age);
@@ -256,28 +245,70 @@ function PatientEntry() {
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+
     if (!checkScreen()) return;
 
-    const result = decideResult(emergency, form);
-    const newReport = {
-      id: makeReportId(),
-      createdAt: new Date().toISOString(),
-      emergency,
-      form,
-      imageName: photo?.name || "photo.jpg",
-      result,
+    if (!photo) {
+      setPhotoProblem("Please upload a photo of the burn before submitting.");
+      return;
+    }
+
+    const localEvaluation = decideResult(emergency, form);
+
+    const assessmentPayload = {
+      emergency: emergency,
+      form: {
+        ...form,
+        conditions: (form.conditions && form.conditions.length > 0) ? form.conditions : ["None"],
+      },
     };
 
-    
-    const store = JSON.parse(localStorage.getItem("bc_assessments_store") || "[]");
-    store.unshift(newReport);
-    localStorage.setItem("bc_assessments_store", JSON.stringify(store));
+    const formData = new FormData();
+    formData.append("data", JSON.stringify(assessmentPayload));
+    formData.append("photo", photo);
 
-    setReport(newReport);
-    setScreen("report");
-    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    try {
+      setSubmitting(true);
+      const response = await fetch("http://localhost:5000/api/assessments", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // Construct report structure from backend response or fallback to local evaluation
+        const generatedReport = {
+          id: result?.report?.id || result?.report_code || result?.id || "BC-REPORT",
+          createdAt: result?.report?.createdAt || result?.created_at || new Date().toISOString(),
+          result: {
+            decision: result?.report?.result?.decision || result?.decision || localEvaluation.decision,
+            reasons: result?.report?.result?.reasons || result?.referral_reasons || localEvaluation.reasons,
+          },
+        };
+
+        setReport(generatedReport);
+        setScreen("report");
+        window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      } else {
+        setPhotoProblem(result.error || "Unable to save assessment.");
+      }
+    } catch (err) {
+      console.error("Connection error:", err);
+      // Fallback: render report directly using local clinical rules if server is unreachable
+      const fallbackReport = {
+        id: "BC-OFFLINE",
+        createdAt: new Date().toISOString(),
+        result: localEvaluation,
+      };
+      setReport(fallbackReport);
+      setScreen("report");
+      window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (screen === "report" && report) {
@@ -542,8 +573,8 @@ function PatientEntry() {
             </section>
 
             <div className="guest-submit">
-              <button type="submit" className="button button-primary button-wide">
-                Save & Assess Case
+              <button type="submit" className="button button-primary button-wide" disabled={submitting}>
+                {submitting ? "Saving & Assessing..." : "Save & Assess Case"}
               </button>
             </div>
           </form>
