@@ -1,0 +1,54 @@
+/* Staff integration for the uploaded AssessmentForm visual language. */
+.assessment-surface{max-width:1060px;margin:0 auto;font-family:Inter,system-ui,sans-serif;color:var(--ink);}
+.assessment-head{margin:0 0 25px}.assessment-head h1{font-size:31px;letter-spacing:-.7px;margin:6px 0}.assessment-head p{font-size:13px;color:var(--muted)}
+.assessment-progress{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:20px}
+.assessment-progress span{padding:12px;background:#fff;border:1px solid #eadbdd;color:#837174;border-radius:10px;font-size:12px;font-weight:650;text-align:center}
+.assessment-progress span.current{background:#f7d6d8;color:#a52b37;border-color:#e6abb2}
+.assessment-panel{background:#fff;border:1px solid #eadbdd;border-radius:18px;padding:28px;box-shadow:0 8px 24px rgba(100,35,40,.08)}
+.assessment-surface .guest-step{padding:26px 0 32px}
+.assessment-question{padding:13px 0;margin-bottom:8px;border-bottom:1px solid #f4e6e7}
+.assessment-question>.field-label{font-weight:650;font-size:14px;margin-bottom:11px}
+.assessment-choices{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0 14px}
+.assessment-choice{border:1px solid #eadbdd;border-radius:999px;background:white;color:#615a5c;padding:10px 17px;min-height:40px;font-size:12px;font-weight:550}
+.assessment-choice:hover{border-color:#e65359}
+.assessment-choice.is-selected,.assessment-choice[aria-pressed="true"]{color:#fff;border-color:#e65359;background:#e65359}
+.assessment-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:21px 0 8px}
+.assessment-actions .button{min-height:45px;padding:10px 18px}
+.assessment-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px;margin:22px 0}
+.assessment-surface .field{font-size:12px;gap:6px}
+.assessment-surface .field>small{color:#898184;font-size:11px}
+.assessment-surface input,.assessment-surface select,.assessment-surface textarea{width:100%;font-size:13px;min-height:43px}
+.assessment-hint{margin:4px 0 15px;font-size:12px;color:#817779;line-height:1.65}
+.assessment-extra{border-top:1px solid #eadbdd;border-bottom:1px solid #eadbdd;padding:9px 0;margin:23px 0}
+.assessment-voice{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px}
+.assessment-voice-btn{color:#d9434d;border:1px solid #f7d6d8;background:#fff8f8;border-radius:8px;font-size:11px;padding:5px 11px;cursor:pointer}
+.assessment-voice small{width:100%;font-size:11px;color:#b24048}
+.assessment-photo{margin:0}.assessment-file-box{text-align:center;border:2px dashed #ebb6b8;border-radius:16px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:8px;background:#fffafa}
+.assessment-file-box.is-dragging{background:#fceaec;border-color:#e65359}
+.assessment-file-trigger{display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:0;cursor:pointer;color:#29272a;padding:6px}
+.assessment-file-trigger b{font-size:13px;overflow-wrap:anywhere}.assessment-file-trigger small{color:#898184;font-size:11px}
+.assessment-upload-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:#f7d6d8;color:#d9434d;font-size:27px}
+.assessment-file-input{max-width:320px!important;height:auto;min-height:0!important;padding:5px!important;font-size:11px!important}
+.assessment-preview{object-fit:contain;width:auto;max-width:100%;max-height:290px;margin:15px auto;border:1px solid #eadbdd;border-radius:10px}
+.assessment-map{background:#fef6f7;border:1px solid #eadbdd;border-radius:15px;padding:19px;margin-top:10px}
+.assessment-map .body-maps{justify-content:center;flex-wrap:wrap}.assessment-map .body-map-card{background:white}
+.assessment-map .body-zone.selected{fill:#e65359}
+.assessment-emergency-inline{background:#fff0ee;border:1px solid #e4a3a4;border-radius:11px;padding:15px;color:#9c2731;margin:16px 0;font-size:12px;line-height:1.6}
+.assessment-modal-overlay{position:fixed;z-index:999;inset:0;background:rgba(41,20,27,.55);display:grid;place-items:center;padding:18px}
+.assessment-modal{background:#fff;border-radius:20px;max-width:500px;width:100%;padding:36px;box-shadow:0 18px 70px #0003;text-align:center}
+.assessment-modal h2{font-size:23px;color:#29272a;margin:8px 0}.assessment-modal p{font-size:14px;line-height:1.65;color:#615a5c}
+.assessment-danger-icon{display:grid;place-items:center;font-size:27px;font-weight:800;border-radius:100px;height:58px;width:58px;margin:auto;color:#be3341;background:#fceaec}
+.assessment-emergency-number{padding:12px 16px;background:#fceaec;color:#a3313a;border-radius:10px;margin:20px 0;font-size:16px}.assessment-emergency-number strong{font-size:26px}
+.assessment-disclaimer{border-radius:11px;padding:15px;margin-top:20px;color:#77686b;background:#fef6f7;border:1px solid #eadbdd;font-size:11px}
+.assessment-error{padding:13px;background:#fff0ee;border:1px solid #e4a3a4;border-radius:10px}
+.assessment-surface .report-container{max-width:900px;margin:auto}.assessment-surface .report-paper{background:#fff;border:1px solid #eadbdd;border-radius:17px;padding:31px;box-shadow:0 8px 24px #8c515017}
+.assessment-surface .report-head{margin-bottom:14px}.assessment-surface .report-brand{display:flex;align-items:center;gap:10px}.assessment-surface .report-logo{width:50px;height:50px;object-fit:contain}
+.assessment-surface .report-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px;border-radius:10px;background:#fef6f7;margin-bottom:20px}
+.assessment-surface .report-meta div{min-width:0}.assessment-surface .report-meta dt{font-size:11px;color:#898184}.assessment-surface .report-meta dd{margin:5px 0 0;overflow-wrap:anywhere;font-size:12px;font-weight:650}
+.assessment-surface .report-decision.is-pending{background:#fff6e9;border:1px solid #f0dcc4;border-radius:12px;padding:18px;margin-bottom:22px}
+.assessment-surface .report-decision.is-pending h2{font-size:19px;color:#765a31}.assessment-surface .report-decision.is-pending p{font-size:12px}
+.assessment-surface .report-section{margin:19px 0}.assessment-surface .report-section h3{font-size:16px}
+.assessment-surface .report-rows div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #f2e5e7}
+.assessment-surface .report-rows dt{font-size:12px;color:#71676a}.assessment-surface .report-rows dd{font-size:12px;font-weight:650;text-align:right;margin:0}
+.assessment-surface .report-foot{padding:15px 0;color:#898184;font-size:10px;border-top:1px solid #eadbdd}
+@media(max-width:720px){.assessment-form-grid{grid-template-columns:1fr}.assessment-progress span{font-size:10px;padding:8px 4px}.assessment-panel{padding:16px}.assessment-map{padding:9px}.assessment-surface .report-meta{grid-template-columns:1fr}.assessment-surface .report-paper{padding:18px}}

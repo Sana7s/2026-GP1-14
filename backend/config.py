@@ -25,7 +25,7 @@ class Config:
     # Address of the PostgreSQL database:
     #   postgresql://USER:PASSWORD@HOST:PORT/DATABASE_NAME
     DATABASE_URL = os.environ.get(
-        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/burncare"
+        "DATABASE_URL", "postgresql://postgres:YOUR_PASSWORD@127.0.0.1:5432/burncare"
     )
 
     # Used to sign the login cookie. Change it to a long random text.

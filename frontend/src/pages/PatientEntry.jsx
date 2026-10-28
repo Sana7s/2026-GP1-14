@@ -112,7 +112,10 @@ const DECISIONS = {
   },
 };
 
-function PatientEntry() {
+function PatientEntry({
+  staffMode = false,
+  onSaved = null
+}) {
   const [screen, setScreen] = useState("emergency");
   const [slide, setSlide] = useState("");
   const [emergency, setEmergency] = useState(EMPTY_EMERGENCY);
@@ -256,8 +259,13 @@ function PatientEntry() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "The assessment could not be saved. Please try again.");
 
-      setReport(data.report); // the saved report, with the server's result
-      setScreen("report");
+     setReport(data.report);
+
+if (staffMode && onSaved) {
+  onSaved(data.report.id);
+}
+
+setScreen("report");
       window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
     } catch (error) {
       setSaveProblem(error.message);
@@ -350,7 +358,9 @@ function PatientEntry() {
       <div className="guest-container">
         <header className="guest-header">
           <div>
-            <h1>Patient Assessment</h1>
+            <h1>
+  {staffMode ? "Healthcare Staff Assessment" : "Patient Assessment"}
+</h1>
             <p className="guest-subtitle">
               {screen === "emergency" ? "Part 1 of 2 · Emergency check" : "Part 2 of 2 · Burn details"}
             </p>

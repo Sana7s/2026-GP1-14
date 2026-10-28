@@ -32,6 +32,7 @@ import TrackRecovery from "./pages/TrackRecovery.jsx";
 import TbsaPage from "./pages/TbsaPage.jsx";
 import FirstAidPage from "./pages/FirstAidPage.jsx";
 import ChangePasswordPage from "./pages/ChangePasswordPage.jsx";
+import StaffApp from "./pages/StaffApp.jsx";
 
 /* =====================================================================
    APP — the starting point of the website
@@ -77,8 +78,12 @@ function App() {
         <Route path="first-aid" element={<FirstAidPage />} />
         <Route path="profile" element={<PatientProfilePage />} />
         <Route path="change-password" element={<ChangePasswordPage />} />
-        <Route path="*" element={<ComingSoonPage title="Page not found" />} />
-      </Route>
+       <Route path="*" element={<ComingSoonPage title="Page not found" />} />
+
+</Route>
+
+ {/* Healthcare Staff Portal */}
+ <Route path="/StaffApp" element={<StaffApp />} />
 
       {/* ===== Public pages: the normal site layout ===== */}
       <Route
@@ -101,6 +106,7 @@ function App() {
               <Route path="/patient-entry" element={<Navigate to="/patient/assessment" replace />} />
               <Route path="/patient-history" element={<Navigate to="/patient/reports" replace />} />
               <Route path="/track-recovery" element={<Navigate to="/patient/recovery" replace />} />
+              
               {/* "*" means "any other address" — shows a not-found page. */}
               <Route path="*" element={<ComingSoonPage title="Page not found" />} />
             </Routes>

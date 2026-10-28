@@ -1,5 +1,6 @@
-# Python packages the BurnCare backend needs.
-# Install them with:  pip install -r requirements.txt
-Flask>=3.0
-psycopg2-binary>=2.9
-python-dotenv>=1.0
+Flask>=3.0,<4
+Flask-Cors>=4.0,<6
+psycopg2-binary>=2.9,<3
+python-dotenv>=1.0,<2
+Pillow>=10,<13
+reportlab>=4,<5
