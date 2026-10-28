@@ -32,6 +32,8 @@ import db
 import patient
 from config import Config
 from flask_cors import CORS
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from healthcare_staff.app import new_app as create_staff_app
 
 
 def create_app():
@@ -53,6 +55,11 @@ def create_app():
     # mapped to table recovery_entries in PostgreSQL for TrackRecovery.jsx
     @app.route("/api/recovery", methods=["GET", "POST"])
     def handle_recovery():
+        from auth import current_user
+        user = current_user()
+        if not user or user.get("role") != "patient" or not user.get("is_active"):
+            return jsonify({"error": "Patient login required."}), 401
+        patient_id = user["account_id"]
         if request.method == "POST":
             import os
             import random
@@ -72,13 +79,12 @@ def create_app():
             # If user selected a specific report, find its id; otherwise fallback to latest
             assessment_id = None
             if selected_report:
-                found = db.query_one("SELECT assessment_id FROM assessments WHERE report_code = %s LIMIT 1;", (selected_report,))
+                found = db.query_one("SELECT assessment_id FROM assessments WHERE report_code = %s AND (patient_id = %s OR created_by = %s) LIMIT 1;", (selected_report, patient_id, patient_id))
                 if found:
                     assessment_id = found.get("assessment_id")
 
             if not assessment_id:
-                latest_assessment = db.query_one("SELECT assessment_id FROM assessments ORDER BY created_at DESC LIMIT 1;")
-                assessment_id = latest_assessment.get("assessment_id") if latest_assessment else None
+                return jsonify({"error": "Choose one of your saved assessment reports first."}), 400
 
             photo = request.files.get("photo")
             photo_name = None
@@ -86,9 +92,12 @@ def create_app():
 
             if photo and photo.filename:
                 photo_name = secure_filename(photo.filename)
+                if not photo_name.lower().endswith((".png", ".jpg", ".jpeg")):
+                    return jsonify({"error": "Upload a PNG or JPEG image."}), 400
                 upload_dir = app.config.get("UPLOAD_FOLDER", "uploads")
                 os.makedirs(upload_dir, exist_ok=True)
-                photo_path = os.path.join(upload_dir, photo_name)
+                from uuid import uuid4
+                photo_path = os.path.join(upload_dir, f"{uuid4().hex}_{photo_name}")
                 photo.save(photo_path)
 
             row = db.query_one("""
@@ -107,6 +116,7 @@ def create_app():
                 RETURNING entry_id, entry_code, entry_date, photo_name, has_fever, spreading_redness_or_pain, warning_triggered, observation_notes, created_at;
             """, (entry_code, assessment_id, entry_date, photo_name, photo_path, has_fever, spreading_redness_or_pain, warning_triggered, notes))
 
+            db.commit()
             return jsonify({
                 "id": row.get("entry_code") or row.get("entry_id"),
                 "date": str(row.get("entry_date")),
@@ -119,10 +129,12 @@ def create_app():
 
         # GET: retrieve timeline entries ordered by date
         rows = db.query_all("""
-            SELECT entry_id, entry_code, entry_date, photo_name, has_fever, spreading_redness_or_pain, warning_triggered, observation_notes, created_at
-            FROM recovery_entries
-            ORDER BY entry_date DESC, created_at DESC;
-        """)
+            SELECT r.entry_id, r.entry_code, r.entry_date, r.photo_name, r.has_fever, r.spreading_redness_or_pain, r.warning_triggered, r.observation_notes, r.created_at
+            FROM recovery_entries r
+            JOIN assessments a ON a.assessment_id = r.assessment_id
+            WHERE a.patient_id = %s OR a.created_by = %s
+            ORDER BY r.entry_date DESC, r.created_at DESC;
+        """, (patient_id, patient_id))
 
         return jsonify([
             {
@@ -136,32 +148,23 @@ def create_app():
             }
             for r in rows
         ]), 200
-    # Assessment History: retrieves saved patient assessments from PostgreSQL
-    # used by the Patient History page (PatientHistory.jsx) to display past reports.
-    @app.get("/api/assessments")
-    def get_assessment_history():
+    @app.get("/api/recovery/assessments")
+    def recovery_assessments():
+        # The recovery selector uses only the authenticated patient's own reports.
+        from auth import current_user
+        user = current_user()
+        if not user or user.get("role") != "patient":
+            return jsonify({"error": "Patient login required."}), 401
         records = db.query_all("""
-            SELECT 
-                assessment_id,
-                report_code,
-                cause,
-                age_group,
-                decision,
-                created_at
-            FROM assessments
-            ORDER BY created_at DESC
-        """)
-        return jsonify([
-            {
-                "id": r.get("report_code") or r.get("assessment_id"),
-                "report_code": r.get("report_code"),
-                "cause": r.get("cause"),
-                "age_group": r.get("age_group"),
-                "decision": r.get("decision"),
-                "created_at": r.get("created_at").isoformat() if r.get("created_at") else None,
-            }
-            for r in records
-        ])
+            SELECT report_code, cause, age_group, decision, created_at
+            FROM assessments WHERE patient_id = %s OR created_by = %s ORDER BY created_at DESC
+        """, (user["account_id"], user["account_id"]))
+        return jsonify([{
+            "id": r["report_code"], "report_code": r["report_code"],
+            "cause": r["cause"], "age_group": r["age_group"],
+            "decision": r["decision"],
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+        } for r in records])
 
     # A quick check that the server and the database are working.
     @app.get("/api/health")
@@ -199,6 +202,8 @@ def create_app():
 
 
 app = create_app()
+# Keep staff demo data isolated in SQLite, while exposing both applications on one port.
+app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/staff": create_staff_app()})
 
 if __name__ == "__main__":
     # debug=True restarts the server when you save a file (development only).

@@ -18,13 +18,13 @@ import os
 import secrets
 import uuid
 from datetime import datetime, timezone
-
+from datetime import date
 from flask import Blueprint, current_app, jsonify, request
 
 import referral
 import tbsa
-from auth import current_user, error, login_required
-from db import commit, execute, query_all, query_one
+from auth import current_user, error, login_required, role_required
+from db import commit, execute, query_all, query_one, get_db
 
 bp = Blueprint("assessments", __name__, url_prefix="/api/assessments")
 
@@ -34,7 +34,25 @@ MAX_PHOTO_BYTES = 10 * 1024 * 1024  # 10 MB
 # The database saves "burn_unit"; the React page uses "burn-unit".
 DECISION_FOR_PAGE = {"burn_unit": "burn-unit", "local": "local", "none": "none", "pending": "pending"}
 
+def staff_age_group(age):
+    """Convert exact age in years to GitHub's TBSA age groups."""
+    age = int(age)
 
+    if not 0 <= age <= 120:
+        raise ValueError("Age must be between 0 and 120.")
+
+    if age == 0:
+        return "Under 1 year"
+    if age <= 4:
+        return "1 – 4 years"
+    if age <= 9:
+        return "5 – 9 years"
+    if age <= 14:
+        return "10 – 14 years"
+    if age == 15:
+        return "15 years"
+
+    return "16 years or older"
 def make_report_code():
     """A report number like BC-261021-7K4QX (no 0/O or 1/I, easy to read)."""
     letters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -193,6 +211,254 @@ def create_assessment():
 
     return jsonify({"report": report_json(assessment_id)}), 201
 
+@bp.post("/staff")
+@role_required("staff")
+def create_staff_assessment(user):
+    """Save an approved staff member's burn assessment."""
+
+    # 1. Read the form data.
+    try:
+        data = json.loads(request.form.get("data", "{}"))
+        if not isinstance(data, dict):
+            return error("Invalid assessment data.")
+
+        age = int(data["age"])
+        pain = int(data["pain"])
+        age_group = staff_age_group(age)
+
+        if not 0 <= pain <= 10:
+            return error("Pain level must be between 0 and 10.")
+
+        injury_date = date.fromisoformat(data["injury_date"])
+        if injury_date > date.today():
+            return error("Injury date cannot be in the future.")
+
+    except (ValueError, TypeError, KeyError):
+        return error("Invalid age, pain level or injury date.")
+
+    emergency = data.get("emergency") or {}
+    supplemental = data.get("supplemental") or {}
+    body_map = data.get("bodyMap")
+
+    if not isinstance(emergency, dict) or not isinstance(supplemental, dict):
+        return error("Invalid clinical responses.")
+
+    for key in ("breathing", "smoke"):
+        if emergency.get(key) not in ("Yes", "No", "Not sure"):
+            return error("Complete the emergency screening.")
+
+    if emergency.get("responsive") not in ("Yes", "No"):
+        return error("Complete the emergency screening.")
+
+    if supplemental.get("circumferential") not in ("Yes", "No", "Not sure"):
+        return error("Complete the circumferential burn question.")
+
+    # Current schema only permits Yes/No for not_healed.
+    if supplemental.get("notHealed") not in ("Yes", "No"):
+        return error("Choose Yes or No for the healing question.")
+
+    conditions = supplemental.get("conditions")
+    if (
+        not isinstance(conditions, list)
+        or not conditions
+        or len(conditions) != len(set(conditions))
+        or not all(isinstance(c, str) for c in conditions)
+        or ("None" in conditions and len(conditions) > 1)
+    ):
+        return error("Invalid long-term conditions.")
+
+    if age < 16 and supplemental.get("childUnwell") not in (
+        "Yes", "No", "Not sure"
+    ):
+        return error("Complete the child-specific question.")
+
+    # 2. Server independently recalculates TBSA.
+    result, problem = tbsa.calculate(age_group, body_map)
+
+    if problem:
+        return error(problem, field="tbsa")
+
+    estimate = result["total"]
+
+    if not 0 < estimate <= 100:
+        return error("A positive TBSA estimate is required.")
+
+    # 3. Clinician adjustment is optional.
+    try:
+        raw_adjustment = data.get("tbsa_final")
+        adjusted = (
+            float(raw_adjustment)
+            if raw_adjustment not in ("", None)
+            else estimate
+        )
+    except (ValueError, TypeError):
+        return error("Invalid adjusted TBSA.")
+
+    import math
+    if not math.isfinite(adjusted) or not 0 < adjusted <= 100:
+        return error("TBSA must be greater than 0 and at most 100%.")
+
+    reason = str(data.get("tbsa_reason") or "").strip()
+    changed = abs(adjusted - estimate) > 0.001
+
+    if changed and len(reason) < 3:
+        return error("Explain the reason for adjusting TBSA.")
+
+    # 4. Validate the clinical fields.
+    patient_code = str(data.get("patient_code") or "").strip()
+    mechanism = str(data.get("mechanism") or "").strip()
+    time_since = str(data.get("time_since") or "").strip()
+    diabetes = str(data.get("diabetes") or "").strip()
+
+    if not 3 <= len(patient_code) <= 30:
+        return error("Enter a valid patient reference code.")
+
+    if mechanism not in (
+        "Hot liquid or steam", "Fire or flame", "Hot object",
+        "Electricity", "Chemical", "Friction",
+        "Cold injury (frostbite)", "Sun", "Other"
+    ):
+        return error("Choose a valid burn mechanism.")
+
+    if time_since not in (
+        "Less than 2 hours", "2 to 6 hours",
+        "6 to 24 hours", "More than 24 hours"
+    ):
+        return error("Choose a valid time since injury.")
+
+    if diabetes not in ("Non-Diabetic", "Diabetic", "Unknown"):
+        return error("Choose a valid diabetes status.")
+
+    medical_history = str(data.get("medical_history") or "").strip()
+    notes = str(data.get("notes") or "").strip()
+
+    if len(medical_history) > 700 or len(notes) > 1000:
+        return error("Clinical text exceeds the allowed length.")
+
+    # 5. Validate the photograph.
+    photo = request.files.get("image")
+
+    if not photo or not photo.filename:
+        return error("A burn photograph is required.")
+
+    if photo.mimetype not in PHOTO_TYPES:
+        return error("Only JPEG and PNG photographs are allowed.")
+
+    photo_bytes = photo.read(MAX_PHOTO_BYTES + 1)
+
+    if not photo_bytes or len(photo_bytes) > MAX_PHOTO_BYTES:
+        return error("Photograph must be 10 MB or less.")
+
+    # 6. Create a report using GitHub's report-code format.
+    code = None
+    for _ in range(5):
+        candidate = make_report_code()
+        if not query_one(
+            "SELECT 1 FROM assessments WHERE report_code = %s",
+            (candidate,)
+        ):
+            code = candidate
+            break
+
+    if code is None:
+        return error("Could not create a unique report ID.", 500)
+
+    folder = current_app.config["UPLOAD_FOLDER"]
+    os.makedirs(folder, exist_ok=True)
+
+    filename = uuid.uuid4().hex + PHOTO_TYPES[photo.mimetype]
+    path = os.path.join(folder, filename)
+
+    # 7. Save the assessment and related records.
+    try:
+        with open(path, "wb") as output:
+            output.write(photo_bytes)
+
+        saved = query_one(
+            """
+            INSERT INTO assessments (
+                report_code, created_by, medical_record_no,
+                emergency_breathing, emergency_smoke,
+                emergency_responsive, age_group, cause,
+                circumferential, not_healed, child_unwell,
+                tbsa_percent, decision,
+                injury_date, pain_level, time_since_injury,
+                diabetes_status, medical_history, clinical_notes,
+                tbsa_adjusted, tbsa_adjustment_reason
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s
+            )
+            RETURNING assessment_id
+            """,
+            (
+                code, user["account_id"], patient_code,
+                emergency["breathing"], emergency["smoke"],
+                emergency["responsive"], age_group, mechanism,
+                supplemental["circumferential"],
+                supplemental["notHealed"],
+                supplemental.get("childUnwell") if age < 16 else None,
+                estimate, "pending",
+                injury_date, pain, time_since,
+                diabetes, medical_history, notes,
+                adjusted if changed else None,
+                reason if changed else None
+            )
+        )
+
+        assessment_id = saved["assessment_id"]
+
+        for area in result["areas"]:
+            execute(
+                """
+                INSERT INTO burn_areas
+                (assessment_id, body_region, side, percent)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (
+                    assessment_id, area["id"],
+                    area["side"], area["percent"]
+                )
+            )
+
+        for condition in conditions:
+            execute(
+                """
+                INSERT INTO assessment_conditions
+                (assessment_id, condition_name)
+                VALUES (%s, %s)
+                """,
+                (assessment_id, condition)
+            )
+
+        execute(
+            """
+            INSERT INTO burn_images (
+                assessment_id, image_no, file_path,
+                mime_type, size_bytes
+            )
+            VALUES (%s, 1, %s, %s, %s)
+            """,
+            (
+                assessment_id, filename, photo.mimetype,
+                len(photo_bytes)
+            )
+        )
+
+        commit()
+
+    except Exception:
+        get_db().rollback()
+        if os.path.exists(path):
+            os.remove(path)
+        raise
+
+    return jsonify({
+        "report": report_json(assessment_id)
+    }), 201
+
 
 @bp.get("/mine")
 @login_required
@@ -223,7 +489,44 @@ def my_assessments(user):
         "createdAt": r["created"],
     } for r in rows]})
 
+@bp.get("/staff")
+@role_required("staff")
+def staff_assessments(user):
+    """Assessments created by this approved staff account."""
 
+    rows = query_all(
+        """
+        SELECT
+            report_code,
+            cause,
+            age_group,
+            tbsa_percent,
+            decision,
+            created_at
+        FROM assessments
+        WHERE created_by = %s
+        ORDER BY created_at DESC
+        """,
+        (user["account_id"],)
+    )
+
+    reports = [
+        {
+            "report_id": row["report_code"],
+            "mechanism": row["cause"],
+            "age_group": row["age_group"],
+            "tbsa_final": (
+                float(row["tbsa_percent"])
+                if row["tbsa_percent"] is not None
+                else None
+            ),
+            "decision": row["decision"],
+            "created_at": row["created_at"].isoformat()
+        }
+        for row in rows
+    ]
+
+    return jsonify({"reports": reports})
 @bp.get("/<report_code>")
 def get_assessment(report_code):
     """One report. A guest report can be opened with its code; a report

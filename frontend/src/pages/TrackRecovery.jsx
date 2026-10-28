@@ -25,7 +25,7 @@ function TrackRecovery() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const resAssessments = await fetch("http://localhost:5000/api/assessments");
+        const resAssessments = await fetch("/api/recovery/assessments", { credentials: "same-origin" });
         if (resAssessments.ok) {
           const assessmentsData = await resAssessments.json();
           const list = Array.isArray(assessmentsData) ? assessmentsData : [];
@@ -35,7 +35,7 @@ function TrackRecovery() {
           }
         }
 
-        const resRecovery = await fetch("http://localhost:5000/api/recovery");
+        const resRecovery = await fetch("/api/recovery", { credentials: "same-origin" });
         if (resRecovery.ok) {
           const recoveryData = await resRecovery.json();
           setEntries(recoveryData);
@@ -86,9 +86,10 @@ function TrackRecovery() {
       formData.append("hasFever", hasFever);
       formData.append("increasingRedness", increasingRedness);
 
-      const response = await fetch("http://localhost:5000/api/recovery", {
+      const response = await fetch("/api/recovery", {
         method: "POST",
         body: formData,
+        credentials: "same-origin",
       });
 
       if (response.ok) {
