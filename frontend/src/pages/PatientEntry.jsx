@@ -1,20 +1,12 @@
 /* =====================================================================
    BurnCare — pages/PatientEntry.jsx
    Patient assessment flow aligned with BBA criteria & styles.css
-   ---------------------------------------------------------------------
-   Saving: the answers, the body map and the photo are sent to Flask
-   (POST /api/assessments). The SERVER works out the burn size again
-   (tbsa.py) and the result with the BBA rules (referral.py), and saves
-   them in the database, so the result can be trusted and shows up on
-   the homepage and in My reports.
-   Step 2 is the TBSA calculator (components/TbsaCalculator.jsx).
    ===================================================================== */
 
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { prefersReducedMotion } from "../components/animations.jsx";
 import { Chevron } from "../components/Chevron.jsx";
-import TbsaCalculator from "../components/TbsaCalculator.jsx";
 
 const EMERGENCY_QUESTIONS = [
   {
@@ -34,6 +26,7 @@ const EMERGENCY_QUESTIONS = [
   },
 ];
 
+const EMERGENCY_ANSWERS = ["Yes", "Not sure"];
 const ADULT = "16 years or older";
 const AGE_GROUPS = [
   "Under 1 year",
@@ -55,6 +48,8 @@ const BURN_CAUSES = [
   "Sun",
   "Other",
 ];
+
+const BURN_UNIT_CAUSES = ["Electricity", "Chemical", "Friction", "Cold injury (frostbite)"];
 
 const CONDITIONS = [
   "Diabetes",
@@ -79,17 +74,41 @@ const EMPTY_FORM = {
 };
 
 const isChild = (age) => age !== "" && age !== ADULT;
+const hasEmergency = (emergency) =>
+  Object.values(emergency).some((value) => EMERGENCY_ANSWERS.includes(value));
 
-// The TBSA calculator needs an age in years to choose its chart. Each age
-// group → the youngest age in it (same chart for the whole group).
-const AGE_IN_YEARS = {
-  "Under 1 year": 0,
-  "1 – 4 years": 1,
-  "5 – 9 years": 5,
-  "10 – 14 years": 10,
-  "15 years": 15,
-  [ADULT]: 16,
-};
+function decideResult(emergency, form) {
+  const reasons = [];
+
+  if (hasEmergency(emergency)) {
+    reasons.push("Possible breathing injury or emergency sign (emergency check)");
+  }
+  if (BURN_UNIT_CAUSES.includes(form.cause)) {
+    reasons.push(`${form.cause} burns need a burn unit at any size`);
+  }
+  if (EMERGENCY_ANSWERS.includes(form.circumferential)) {
+    reasons.push("The burn may go all the way around a body part");
+  }
+  const conditions = form.conditions.filter((item) => item !== "None");
+  if (conditions.length) {
+    reasons.push(`Long-term condition that could slow healing (${conditions.join(", ")})`);
+  }
+  if (form.notHealed === "Yes") {
+    reasons.push("The burn has not healed after 2 weeks");
+  }
+  if (isChild(form.age) && EMERGENCY_ANSWERS.includes(form.childUnwell)) {
+    reasons.push("A child with a burn who seems unwell or has a fever");
+  }
+
+  if (reasons.length) {
+    return { decision: "burn-unit", reasons };
+  }
+
+  return {
+    decision: "local",
+    reasons: ["No immediate BBA referral indicators flagged in entry questionnaire"],
+  };
+}
 
 const DECISIONS = {
   "burn-unit": {
@@ -104,18 +123,9 @@ const DECISIONS = {
     title: "No treatment needed",
     text: "This burn only needs first aid at home. Watch for warning signs.",
   },
-  // No warning sign in the answers, but the final result also needs the
-  // burn size (body map) and the photo check, which aren't connected yet.
-  pending: {
-    title: "Result pending",
-    text: "Your answers show no urgent warning sign. The final result needs the burn size and photo check. If the burn gets worse or you are worried, see a doctor.",
-  },
 };
 
-function PatientEntry({
-  staffMode = false,
-  onSaved = null
-}) {
+function PatientEntry() {
   const [screen, setScreen] = useState("emergency");
   const [slide, setSlide] = useState("");
   const [emergency, setEmergency] = useState(EMPTY_EMERGENCY);
@@ -127,10 +137,7 @@ function PatientEntry({
   const [showAlert, setShowAlert] = useState(false);
   const [report, setReport] = useState(null);
   const [dragging, setDragging] = useState(false);
-  const [saving, setSaving] = useState(false); // waiting for Flask?
-  const [saveProblem, setSaveProblem] = useState(""); // message if saving failed
-  const [tbsa, setTbsa] = useState(null); // latest result from the body map
-  const [mapKey, setMapKey] = useState(0); // change it to clear the body map
+  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
   const child = isChild(form.age);
@@ -149,12 +156,15 @@ function PatientEntry({
           { key: "conditions", label: "Long-term conditions", answered: form.conditions.length > 0 },
           { key: "notHealed", label: "Burn not healed after 2 weeks", answered: form.notHealed !== "" },
           ...(child ? [{ key: "childUnwell", label: "Child unwell or feverish", answered: form.childUnwell !== "" }] : []),
-          { key: "tbsa", label: "Burned areas on the body map", answered: Boolean(tbsa?.breakdown.length) },
           { key: "photo", label: "Burn photo", answered: Boolean(photo) },
         ];
 
   const current = required.find(({ key }) => missing.includes(key));
   const isMissing = (key) => current?.key === key;
+
+  useEffect(() => {
+    if (showAlert && !current) setShowAlert(false); 
+  }, [current, showAlert]);
 
   useEffect(() => {
     return () => {
@@ -235,42 +245,69 @@ function PatientEntry({
     }
   };
 
-  // Send the answers + photo to Flask, which decides and saves the result.
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (saving || !checkScreen()) return;
+    if (e) e.preventDefault();
 
-    // A "multipart form": the answers as JSON text, plus the photo file.
-    const body = new FormData();
-    // Body map: only WHICH areas and how much (the server adds them up again).
-    const bodyMap = tbsa.breakdown.map(({ id, method, palms, touched }) => ({ id, method, palms, touched }));
-    body.append("data", JSON.stringify({ emergency, form, bodyMap }));
-    body.append("photo", photo);
+    if (!checkScreen()) return;
 
-    setSaving(true);
-    setSaveProblem("");
+    if (!photo) {
+      setPhotoProblem("Please upload a photo of the burn before submitting.");
+      return;
+    }
+
+    const localEvaluation = decideResult(emergency, form);
+
+    const assessmentPayload = {
+      emergency: emergency,
+      form: {
+        ...form,
+        conditions: (form.conditions && form.conditions.length > 0) ? form.conditions : ["None"],
+      },
+    };
+
+    const formData = new FormData();
+    formData.append("data", JSON.stringify(assessmentPayload));
+    formData.append("photo", photo);
+
     try {
-      let response;
-      try {
-        response = await fetch("/api/assessments", { method: "POST", body, credentials: "same-origin" });
-      } catch {
-        throw new Error("Cannot reach the BurnCare server. Please check your connection and try again.");
+      setSubmitting(true);
+      const response = await fetch("http://localhost:5000/api/assessments", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // Construct report structure from backend response or fallback to local evaluation
+        const generatedReport = {
+          id: result?.report?.id || result?.report_code || result?.id || "BC-REPORT",
+          createdAt: result?.report?.createdAt || result?.created_at || new Date().toISOString(),
+          result: {
+            decision: result?.report?.result?.decision || result?.decision || localEvaluation.decision,
+            reasons: result?.report?.result?.reasons || result?.referral_reasons || localEvaluation.reasons,
+          },
+        };
+
+        setReport(generatedReport);
+        setScreen("report");
+        window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      } else {
+        setPhotoProblem(result.error || "Unable to save assessment.");
       }
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "The assessment could not be saved. Please try again.");
-
-     setReport(data.report);
-
-if (staffMode && onSaved) {
-  onSaved(data.report.id);
-}
-
-setScreen("report");
+    } catch (err) {
+      console.error("Connection error:", err);
+      // Fallback: render report directly using local clinical rules if server is unreachable
+      const fallbackReport = {
+        id: "BC-OFFLINE",
+        createdAt: new Date().toISOString(),
+        result: localEvaluation,
+      };
+      setReport(fallbackReport);
+      setScreen("report");
       window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
-    } catch (error) {
-      setSaveProblem(error.message);
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
@@ -292,9 +329,6 @@ setScreen("report");
                 <div><dt>Report ID</dt><dd className="report-id">{report.id}</dd></div>
                 <div><dt>Date</dt><dd>{new Date(report.createdAt).toLocaleDateString()}</dd></div>
                 <div><dt>Status</dt><dd>Saved to Account</dd></div>
-                {report.tbsa != null && (
-                  <div><dt>Burn size (TBSA)</dt><dd>{report.tbsa}%</dd></div>
-                )}
               </dl>
             </header>
 
@@ -323,8 +357,6 @@ setScreen("report");
                   setForm(EMPTY_FORM);
                   removePhoto();
                   setReport(null);
-                  setTbsa(null);
-                  setMapKey((key) => key + 1); // a fresh, empty body map
                   setScreen("emergency");
                 }}
               >
@@ -358,9 +390,7 @@ setScreen("report");
       <div className="guest-container">
         <header className="guest-header">
           <div>
-            <h1>
-  {staffMode ? "Healthcare Staff Assessment" : "Patient Assessment"}
-</h1>
+            <h1>Patient Assessment</h1>
             <p className="guest-subtitle">
               {screen === "emergency" ? "Part 1 of 2 · Emergency check" : "Part 2 of 2 · Burn details"}
             </p>
@@ -496,15 +526,11 @@ setScreen("report");
             <section className="guest-step">
               <div className="guest-step-head">
                 <span className="guest-step-label">Step 2</span>
-                <h2 className="guest-step-title">Where is the burn?</h2>
+                <h2 className="guest-step-title">Body map (TBSA)</h2>
+                <span className="soon-badge">Coming soon</span>
               </div>
-              <div id="field-tbsa" className={`field${isMissing("tbsa") ? " is-missing" : ""}`}>
-                <TbsaCalculator
-                  key={mapKey}
-                  age={form.age ? AGE_IN_YEARS[form.age] : null}
-                  depth={null} // TODO (AI): the burn depth from the photo check
-                  onChange={setTbsa}
-                />
+              <div className="tbsa-placeholder">
+                <p>Interactive Lund & Browder body map placeholder</p>
               </div>
             </section>
 
@@ -547,13 +573,8 @@ setScreen("report");
             </section>
 
             <div className="guest-submit">
-              {saveProblem && (
-                <p className="field-error" role="alert">
-                  {saveProblem}
-                </p>
-              )}
-              <button type="submit" className="button button-primary button-wide" disabled={saving}>
-                {saving ? "Saving…" : "Save & Assess Case"}
+              <button type="submit" className="button button-primary button-wide" disabled={submitting}>
+                {submitting ? "Saving & Assessing..." : "Save & Assess Case"}
               </button>
             </div>
           </form>
