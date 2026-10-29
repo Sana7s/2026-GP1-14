@@ -1,9 +1,11 @@
 /* =====================================================================
    BurnCare — pages/TrackRecovery.jsx
    Recovery timeline with symptom check & BBA warning triggers.
+   Uses api() from auth.js to load only the signed-in patient's assessments.
    ===================================================================== */
 
 import { useState, useEffect, useRef } from "react";
+import { api } from "../auth.js";
 
 const PHOTO_TYPES = ["image/jpeg", "image/png"];
 const MAX_PHOTO_MB = 10;
@@ -23,21 +25,30 @@ function TrackRecovery() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
+    let isCurrent = true;
+
     const fetchInitialData = async () => {
       try {
-        const resAssessments = await fetch("/api/recovery/assessments", { credentials: "same-origin" });
-        if (resAssessments.ok) {
-          const assessmentsData = await resAssessments.json();
-          const list = Array.isArray(assessmentsData) ? assessmentsData : [];
+        // Fetch only the signed-in patient's own assessments
+        const assessmentsData = await api("/api/assessments/mine");
+        const list = Array.isArray(assessmentsData?.assessments)
+          ? assessmentsData.assessments
+          : (Array.isArray(assessmentsData) ? assessmentsData : []);
+
+        if (isCurrent) {
           setAssessmentList(list);
           if (list.length > 0) {
-            setSelectedReport(list[0].report_code || list[0].id || "");
+            setSelectedReport(list[0].id || list[0].report_code || "");
           }
         }
 
-        const resRecovery = await fetch("/api/recovery", { credentials: "same-origin" });
-        if (resRecovery.ok) {
-          const recoveryData = await resRecovery.json();
+        // Fetch recovery timeline entries with fallback handling
+        const recoveryData = await api("/api/recovery/mine").catch(async () => {
+          const res = await fetch("/api/recovery", { credentials: "same-origin" });
+          return res.ok ? await res.json() : [];
+        });
+
+        if (isCurrent && Array.isArray(recoveryData)) {
           setEntries(recoveryData);
         }
       } catch (err) {
@@ -46,6 +57,10 @@ function TrackRecovery() {
     };
 
     fetchInitialData();
+
+    return () => {
+      isCurrent = false;
+    };
   }, []);
 
   const choosePhoto = (file) => {
@@ -145,7 +160,7 @@ function TrackRecovery() {
                     <option value="">No previous assessments found</option>
                   ) : (
                     assessmentList.map((item) => {
-                      const code = item.report_code || item.id;
+                      const code = item.id || item.report_code;
                       return (
                         <option key={code} value={code}>
                           {code} — {item.cause || "Assessment"}
