@@ -11,6 +11,8 @@
      age       number in years (0 = under 1 year), or null if not entered
      depth     1, 2 or 3 (AI result), or null if not known yet
                (while null, the marked area is counted: safer)
+     initialMarks  (optional) areas already marked, e.g. when editing a saved
+               report: { areaId: { method: "whole" | "palms", palms } }
      onChange  called with the result whenever it changes:
                { chart, chartLabel, depth, counted, total, breakdown[],
                  specialAreas[] }   (e.g. ["Face", "Hands"])
@@ -23,11 +25,11 @@ import { CHARTS, calculateTbsa, chooseChart, formatPercent, isChildChart, maxPal
 
 const DEPTH_NAMES = { 1: "1st degree", 2: "2nd degree", 3: "3rd degree" };
 
-function TbsaCalculator({ age, depth, onChange }) {
+function TbsaCalculator({ age, depth, onChange, initialMarks }) {
   const hasAge = typeof age === "number" && age >= 0;
   const chart = hasAge ? chooseChart(age) : null;
 
-  const [marks, setMarks] = useState({}); // { areaId: { method, palms, touched } }
+  const [marks, setMarks] = useState(() => initialMarks ?? {}); // { areaId: { method, palms, touched } }
   const [activeId, setActiveId] = useState(null); // area open in the panel
 
   // A different chart has different areas (e.g. the age changed from 15
