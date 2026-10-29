@@ -16,6 +16,7 @@ Files of the backend:
     admin.py          the Admin page: approve, reject, request changes ...
     assessments.py    save and read burn assessments
     consultations.py  staff ask burn specialists about a case
+    staff.py          the healthcare staff pages: reports, clinical details, reviews
     mailer.py         sends emails (the admin login code)
     create_admin.py   creates the first admin account (run once)
     seed_demo.py      adds demo accounts for testing and the presentation
@@ -30,6 +31,7 @@ import auth
 import consultations
 import db
 import patient
+import staff
 from config import Config
 from flask_cors import CORS
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
@@ -50,6 +52,7 @@ def create_app():
     app.register_blueprint(assessments.bp)     # /api/assessments/...
     app.register_blueprint(consultations.bp)   # /api/consultations/...
     app.register_blueprint(patient.bp)         # /api/patient/...
+    app.register_blueprint(staff.bp)           # /api/staff/...
 
 # Recovery Tracking: save and retrieve recovery timeline entries
     # mapped to table recovery_entries in PostgreSQL for TrackRecovery.jsx

@@ -1,11 +1,15 @@
 """BurnCare Flask classroom implementation based on 'BurnCare Project Division'.
-No login page by design; demo staff switching is NOT authentication.
+WHO the staff member is now comes from the BurnCare login (Lana's login
+page, /api/auth/me) — not from a list of staff profiles. Staff sign up on
+the Register page and are approved by the admin, so nobody can create or
+switch staff profiles here.
 Never upload actual patient data or expose this server to a network.
 """
 import io, json, os, re, uuid
+import urllib.error, urllib.request
 from pathlib import Path
 from datetime import date
-from flask import Flask, request, jsonify, session, send_file
+from flask import Flask, request, jsonify, send_file
 from PIL import Image, UnidentifiedImageError
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -80,6 +84,58 @@ def check_revision(data, rep):
 
 class Invalid(Exception): pass
 
+class NotAllowed(Exception):
+    """Not logged in (401) or not allowed (403)."""
+    def __init__(self, message, status=403):
+        super().__init__(message); self.status = status
+
+
+# ----- The logged-in BurnCare account ---------------------------------
+# The browser sends the BurnCare login cookie with every /staff/api call
+# (same website). We pass it on to the main BurnCare backend and ask who
+# it belongs to: GET /api/auth/me. Set BURNCARE_API in .env if the main
+# backend is not on port 5000.
+BURNCARE_API = os.environ.get('BURNCARE_API', 'http://127.0.0.1:5000')
+
+# BurnCare role names → the role names used on the staff pages.
+ROLE_FROM_ACCOUNT = {'Doctor': 'Doctor', 'Nurse': 'Nurse', 'EMS staff (paramedic)': 'Paramedic or ambulance crew',
+                     'Burn specialist': 'Burn specialist'}
+APPROVAL_FROM_STATUS = {'approved': 'Approved', 'pending': 'Waiting for approval', 'changes_requested': 'Changes requested'}
+
+
+def logged_in_account():
+    cookie = request.headers.get('Cookie')
+    if not cookie:
+        return None
+    ask = urllib.request.Request(BURNCARE_API + '/api/auth/me', headers={'Cookie': cookie})
+    try:
+        with urllib.request.urlopen(ask, timeout=5) as answer:
+            return json.loads(answer.read()).get('user')
+    except urllib.error.HTTPError:
+        return None  # 401: not logged in
+    except (urllib.error.URLError, ValueError, OSError):
+        raise NotAllowed('Cannot reach the BurnCare server. Make sure the main Flask backend is running.', 503)
+
+
+def staff_account():
+    """The logged-in staff account, as a staff profile (read-only)."""
+    account = logged_in_account()
+    if not account:
+        raise NotAllowed('Please log in again.', 401)
+    if account.get('role') != 'staff':
+        raise NotAllowed('Only healthcare staff can use this page.', 403)
+    label = account.get('staffRole') or 'Other'
+    return dict(
+        id=f"account-{account['id']}",       # the BurnCare account number
+        name=account['fullName'],
+        role=ROLE_FROM_ACCOUNT.get(label, 'Other'),
+        role_label=label,                     # e.g. "Other: Pharmacist"
+        approval=APPROVAL_FROM_STATUS.get(account.get('staffStatus'), 'Waiting for approval'),
+        email=account['email'],
+        license_number=account.get('scfhsNumber') or '',
+        specialty='', organization='', department='',
+    )
+
 def req_text(v, name, max_len=200):
     if not isinstance(v,str) or not v.strip() or len(v.strip())>max_len: raise Invalid(f'{name} is required (maximum {max_len} characters).')
     return v.strip()
@@ -132,7 +188,7 @@ def validate(data):
 def new_app():
     initialize(); IMAGE_DIR.mkdir(parents=True,exist_ok=True)
     app=Flask(__name__)
-    # Demo session only. Change if using in a private local lab; not production authentication.
+    # (No sessions are written here any more: the login belongs to the main BurnCare backend.)
     app.secret_key=os.environ.get('BURNCARE_DEMO_SESSION_KEY','local-demo-only-not-an-authentication-key')
     app.config['MAX_CONTENT_LENGTH']=MAX_IMAGE+160_000
 
@@ -142,11 +198,21 @@ def new_app():
     @app.errorhandler(413)
     def too_big(_): return jsonify(error='Image must not exceed 5 MB.'),413
 
+    @app.errorhandler(NotAllowed)
+    def not_allowed(exc): return jsonify(error=str(exc)),exc.status
+
     def actor(db):
-        sid=session.get('staff_id')
-        profile=db.execute('SELECT * FROM staff WHERE id=?',(sid,)).fetchone() if sid else None
-        if not profile: raise Invalid('Create or select a staff profile before continuing.')
-        return dict(profile)
+        """The logged-in, admin-approved staff member (from the BurnCare login)."""
+        profile=staff_account()
+        if profile['approval']!='Approved':
+            raise NotAllowed('Your account is waiting for admin approval.', 403)
+        # A copy in the staff table, so reports and consultations can show who did what.
+        db.execute('''INSERT INTO staff (id,name,role,specialty,organization,department,license_number,email,approval,created_at)
+                      VALUES (?,?,?,?,?,?,?,?,?,?)
+                      ON CONFLICT(id) DO UPDATE SET name=excluded.name,role=excluded.role,email=excluded.email,
+                        license_number=excluded.license_number,approval=excluded.approval''',
+                   (profile['id'],profile['name'],profile['role'],'','','',profile['license_number'],profile['email'],profile['approval'],now()))
+        return profile
 
     def specialist(db):
         user=actor(db)
@@ -158,48 +224,15 @@ def new_app():
 
     @app.get('/api/staff')
     def staff():
-        with connect() as db:
-            profiles=[dict(x) for x in db.execute('SELECT * FROM staff ORDER BY created_at')]
-            sid=session.get('staff_id')
-            active=next((p for p in profiles if p['id']==sid),None)
-            return jsonify(staff=profiles,active=active)
-
-    @app.post('/api/staff/select')
-    def select_staff():
-        sid=(request.get_json(silent=True) or {}).get('staff_id')
-        with connect() as db:
-            if not db.execute('SELECT 1 FROM staff WHERE id=?',(sid,)).fetchone(): return jsonify(error='Staff profile not found'),404
-            session['staff_id']=sid
-            return jsonify(active=actor(db))
-
-    @app.post('/api/staff')
-    def create_staff():
-        data=request.get_json(silent=True) or {}
-        role=data.get('role')
-        if role not in ROLES: raise Invalid('Choose a professional role.')
-        name=req_text(data.get('name'),'Staff name',100)
-        org=req_text(data.get('organization'),'Hospital or organization',120)
-        department=str(data.get('department','')).strip()[:120]
-        email=str(data.get('email','')).strip()[:140]
-        if email and not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email): raise Invalid('Provide a valid email address.')
-        specialty,license_number,approval='','','Not required'
-        if role=='Burn specialist':
-            specialty=data.get('specialty','')
-            if specialty not in ('Burn surgery','Plastic surgery'): raise Invalid('Specialists must choose burn surgery or plastic surgery.')
-            license_number=req_text(data.get('license_number'),'Saudi Commission professional license number',80)
-            approval='Waiting for approval'
-        sid=ident()
-        with connect() as db:
-            db.execute('''INSERT INTO staff (id,name,role,specialty,organization,department,license_number,email,approval,created_at)
-                         VALUES (?,?,?,?,?,?,?,?,?,?)''',(sid,name,role,specialty,org,department,license_number,email,approval,now()))
-            session['staff_id']=sid
-            result=actor(db)
-        return jsonify(staff=result),201
+        """The logged-in staff member's profile (read-only). There is no
+        "create profile" or "switch profile" any more: staff register on the
+        Register page and the admin approves them."""
+        return jsonify(active=staff_account())
 
     @app.get('/api/reports')
     def report_list():
         with connect() as db:
-            # For demonstrations, all mock reports are available. Real permission checking requires authentication.
+            actor(db)  # approved staff only
             rows=[dict(r) for r in db.execute('''SELECT r.id AS report_id,r.patient_code,r.created_at,r.mechanism,r.tbsa_final,
                        r.destination,(SELECT COUNT(*) FROM consultations c WHERE c.report_id=r.id) AS consultation_count
                        FROM reports r ORDER BY r.created_at DESC''')]
@@ -244,12 +277,14 @@ def new_app():
     @app.get('/api/reports/<report_id>')
     def read_report(report_id):
         with connect() as db:
+            actor(db)  # approved staff only
             rep=report_obj(db,report_id)
             return (jsonify(report=rep),200) if rep else (jsonify(error='Record not found'),404)
 
     @app.get('/api/reports/<report_id>/image')
     def image(report_id):
         with connect() as db:
+            actor(db)  # approved staff only
             rep=report_obj(db,report_id)
             if not rep: return jsonify(error='Record not found'),404
             path=IMAGE_DIR/rep['image_file']
@@ -388,6 +423,7 @@ def new_app():
     @app.get('/api/reports/<report_id>/pdf')
     def report_pdf(report_id):
         with connect() as db:
+            actor(db)  # approved staff only
             rep=report_obj(db,report_id)
             if not rep: return jsonify(error='Record not found'),404
 

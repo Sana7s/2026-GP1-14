@@ -28,8 +28,9 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { prefersReducedMotion } from "../components/animations.jsx";
 import { Chevron } from "../components/Chevron.jsx";
+import BodyMap from "../components/BodyMap.jsx";
 import TbsaCalculator from "../components/TbsaCalculator.jsx";
-import { formatPercent } from "../tbsa/tbsaCharts.js";
+import { chooseChart, formatPercent, isChildChart } from "../tbsa/tbsaCharts.js";
 import { api } from "../api.js";
 
 /* ---------------------------------------------------------------------
@@ -655,6 +656,12 @@ function Report({ report }) {
   const decision = DECISIONS[result.decision];
   const emergencyFlag = hasEmergency(emergency);
 
+  // The body map as it was marked, shown on the report (look only, no tapping).
+  const chart = chooseChart(AGE_IN_YEARS[form.age] ?? 16);
+  const marks = Object.fromEntries(
+    (bodyMap?.breakdown ?? []).map(({ id, method, palms, touched }) => [id, { method, palms, touched }]),
+  );
+
   // One row of the report: question on the left, answer on the right.
   const rows = [
     ["Patient's age", `${form.age} (${isChild(form.age) ? "child" : "adult"})`],
@@ -762,6 +769,21 @@ function Report({ report }) {
             </div>
           ))}
         </dl>
+        {bodyMap?.breakdown.length > 0 && (
+          <div className="report-body-map">
+            <BodyMap
+              variant={isChildChart(chart) ? "child" : "adult"}
+              chart={chart}
+              marks={marks}
+              counted
+              readOnly
+            />
+            <p className="report-map-key">
+              <span className="report-key is-whole" aria-hidden="true" /> Whole area
+              <span className="report-key is-palms" aria-hidden="true" /> Part of it (palms)
+            </p>
+          </div>
+        )}
         <p className="report-pending">
           Counts every marked area until the photo check confirms how deep the burn is.
         </p>

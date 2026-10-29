@@ -32,8 +32,15 @@ import TrackRecovery from "./pages/TrackRecovery.jsx";
 import TbsaPage from "./pages/TbsaPage.jsx";
 import FirstAidPage from "./pages/FirstAidPage.jsx";
 import ChangePasswordPage from "./pages/ChangePasswordPage.jsx";
-import StaffApp from "./pages/StaffApp.jsx";
 import ReportPage from "./pages/ReportPage.jsx";
+import StaffTopBar from "./components/StaffTopBar.jsx";
+import StaffHomePage from "./pages/staff/StaffHomePage.jsx";
+import StaffAssessmentPage from "./pages/staff/StaffAssessmentPage.jsx";
+import StaffReportsPage from "./pages/staff/StaffReportsPage.jsx";
+import StaffReportPage from "./pages/staff/StaffReportPage.jsx";
+import StaffConsultationsPage from "./pages/staff/StaffConsultationsPage.jsx";
+import StaffProfilePage from "./pages/staff/StaffProfilePage.jsx";
+import AdminTopBar from "./components/AdminTopBar.jsx";
 
 /* =====================================================================
    APP — the starting point of the website
@@ -83,8 +90,22 @@ function App() {
 
 </Route>
 
- {/* Healthcare Staff Portal */}
- <Route path="/StaffApp" element={<StaffApp />} />
+      {/* ===== Admin page ===== */}
+      <Route path="/admin" element={<AdminTopBar />}>
+        <Route index element={<AdminPage />} />
+      </Route>
+
+
+  {/* ===== Healthcare staff pages (/staff/...) ===== */}
+      <Route path="/staff" element={<StaffTopBar />}>
+        <Route index element={<StaffHomePage />} />
+        <Route path="assessment" element={<StaffAssessmentPage />} />
+        <Route path="reports" element={<StaffReportsPage />} />
+        <Route path="reports/:reportId" element={<StaffReportPage />} />
+        <Route path="consultations" element={<StaffConsultationsPage />} />
+        <Route path="profile" element={<StaffProfilePage />} />
+        <Route path="*" element={<Navigate to="/staff" replace />} />
+      </Route>
 
       {/* ===== Public pages: the normal site layout ===== */}
       <Route
@@ -96,7 +117,6 @@ function App() {
               <Route path="/about" element={<AboutPage content={content} />} />
               <Route path="/guest" element={<GuestPage />} />
               <Route path="/tbsa" element={<TbsaPage />} />
-              <Route path="/admin" element={<AdminPage />} />
               {/* Register: first choose a role, then fill in that role's form. */}
               <Route path="/register" element={<RegisterChoicePage />} />
               <Route path="/register/patient" element={<RegisterPage role="patient" />} />
