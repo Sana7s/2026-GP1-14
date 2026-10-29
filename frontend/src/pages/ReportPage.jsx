@@ -166,7 +166,10 @@ function ReportPage() {
 /* =====================================================================
    VIEW: the whole report, like a sheet of paper
    ===================================================================== */
-function ReportPaper({ report }) {
+// Exported so the healthcare staff report page shows the SAME report.
+// "children" = extra sections (the staff page adds the clinical details
+// and the clinician's review), shown before the change history.
+export function ReportPaper({ report, children }) {
   const decision = DECISIONS[report.result.decision] ?? DECISIONS.pending;
   const chart = chartFor(report.form.age);
   const marks = marksFromAreas(report.areas, report.form.age);
@@ -317,6 +320,8 @@ function ReportPaper({ report }) {
         )}
       </ReportSection>
 
+      {children}
+
       {/* ----- Change history ----- */}
       {report.edits.length > 0 && (
         <ReportSection title="Change history">
@@ -343,7 +348,7 @@ function ReportPaper({ report }) {
   );
 }
 
-function ReportSection({ title, children }) {
+export function ReportSection({ title, children }) {
   return (
     <section className="report-section">
       <h3>{title}</h3>

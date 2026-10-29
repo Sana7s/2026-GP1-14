@@ -26,6 +26,7 @@
     16. PATIENT PAGES
     17. TBSA CALCULATOR
     18. FIRST AID GUIDE 
+    19. HEALTHCARE STAFF PAGES
 
   
    ===================================================================== */
@@ -4012,6 +4013,62 @@ main {
   }
 }
 
+/* ---------- Admin top bar ---------- */
+/* Logo on the left, name + Log out on the right (no menu links). */
+.patient-header-inner.admin-header-inner {
+  grid-template-columns: 1fr auto;
+  padding-top: 0;
+}
+
+.admin-badge {
+  margin-left: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--white);
+  font-size: var(--text-tiny);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-account {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.admin-logout {
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--white);
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 180ms ease, color 180ms ease;
+}
+
+.admin-logout:hover {
+  border-color: var(--coral);
+  color: var(--rose);
+}
+
+.admin-checking {
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+@media (max-width: 560px) {
+  .admin-account .patient-name {
+    display: none;
+  }
+}
+
 /* =====================================================================
    9. "COMING SOON" PAGE
    ===================================================================== */
@@ -4069,6 +4126,8 @@ main {
   font-size: var(--text-body);
   line-height: 1.7;
 }
+
+
 
 /* =====================================================================
    10. LOG IN PAGE
@@ -6968,4 +7027,621 @@ button.account-menu-item {
   border-top: 1px solid var(--pink);
   font-size: var(--text-sub);
 }
+/* =====================================================================
+   19. HEALTHCARE STAFF PAGES  (/staff/...)
+   Home, New assessment, Reports, one report, Consultations, My profile.
+   They use the patient page design (section 10) — the same top bar,
+   cards, colours and type — plus the few extra pieces below.
+   (This replaces the "Healthcare staff profile" block pasted earlier.)
+   ===================================================================== */
 
+/* ---------- Top bar: links that open after approval ---------- */
+.patient-nav-link.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.patient-nav-link.is-disabled::after {
+  display: none;
+}
+
+/* ---------- Page title (Reports, Consultations) ---------- */
+.staff-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px 24px;
+}
+
+.staff-page-head h1 {
+  margin: 0 0 6px;
+  font-size: var(--text-title);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+}
+
+.staff-page-head p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-body);
+  line-height: 1.55;
+}
+
+/* Small number next to a card title. */
+.staff-count {
+  min-width: 26px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--blush);
+  color: var(--rose);
+  font-size: var(--text-label);
+  font-weight: 650;
+  text-align: center;
+}
+
+/* ---------- Badges: approval, reviewed, consultation status ---------- */
+.staff-approval {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: var(--text-label);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.staff-approval.is-approved {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.staff-approval.is-waiting {
+  background: #fdf3e2;
+  color: #9a6412;
+}
+
+.staff-approval.is-closed {
+  background: #f1eff0;
+  color: #5f5a5d;
+}
+
+/* Result text in the colour of its dot. */
+.tone-text-urgent { color: var(--rose); }
+.tone-text-soon { color: #9a6412; }
+.tone-text-home { color: #2e7d32; }
+.tone-text-pending { color: var(--ink-soft); }
+.tone-pending { background: #b9b1b3; box-shadow: 0 0 0 4px rgba(137, 129, 132, 0.14); }
+
+/* ---------- Home ---------- */
+.staff-hero {
+  align-items: center;
+}
+
+/* "Open a patient's report" box on the right of the welcome card. */
+.staff-find-hero {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--card-radius);
+  background: var(--blush-soft);
+}
+
+.staff-find .field-hint {
+  margin: 2px 0 10px;
+}
+
+.staff-find-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.staff-find-row input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.staff-find-row input::placeholder {
+  text-transform: none;
+}
+
+/* Consultation numbers on the home page. */
+.staff-stats {
+  display: grid;
+  gap: 10px;
+}
+
+.staff-stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+}
+
+.staff-stat strong {
+  min-width: 34px;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  text-align: center;
+}
+
+.staff-stat p {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.staff-stat span {
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+
+.staff-stat.is-highlight {
+  border-color: var(--pink);
+  background: var(--blush-soft);
+}
+
+.staff-stat.is-highlight strong {
+  color: var(--rose);
+}
+
+/* ---------- Reports list ---------- */
+.staff-search {
+  margin-bottom: 14px;
+}
+
+.staff-report-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.staff-report-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.staff-report-card:hover {
+  border-color: var(--pink);
+  box-shadow: var(--card-shadow);
+  transform: translateY(-1px);
+}
+
+.staff-report-card:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+}
+
+.staff-report-main,
+.staff-report-side {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.staff-report-side {
+  justify-items: end;
+  text-align: right;
+}
+
+.staff-report-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.staff-report-id {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+
+.staff-report-meta {
+  color: var(--muted);
+  font-size: var(--text-label);
+  overflow-wrap: anywhere;
+}
+
+.staff-result {
+  font-size: var(--text-small);
+  font-weight: 650;
+}
+
+/* ---------- One report ---------- */
+.staff-not-found {
+  margin: 0;
+  color: var(--rose);
+  font-weight: 600;
+}
+
+/* "Not reviewed yet" uses the "Reviewed" note's shape, in amber. */
+.report-locked.staff-not-reviewed {
+  border-color: #f3dfb8;
+  background: #fffaf0;
+}
+
+.report-locked.staff-not-reviewed svg {
+  color: #9a6412;
+}
+
+.report-locked a {
+  color: var(--rose);
+  font-weight: 600;
+}
+
+.staff-pre {
+  white-space: pre-line;
+}
+
+.staff-review-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.staff-review + .staff-review {
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+
+.staff-review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0 0 6px;
+}
+
+.staff-review-when {
+  color: var(--muted);
+  font-size: var(--text-label);
+}
+
+/* The cards under the report: clinical details, review, specialist. */
+.staff-report-actions {
+  display: grid;
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.staff-small-button {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: var(--text-small);
+}
+
+.staff-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 14px;
+  margin-top: 18px;
+}
+
+.staff-form-actions .patient-card-link {
+  margin-right: auto;
+}
+
+/* Questions about this report. */
+.staff-consult-mini {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.staff-consult-mini li {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+}
+
+.staff-consult-mini p {
+  margin: 0;
+  font-size: var(--text-body);
+}
+
+.staff-ask .staff-form-actions {
+  margin-top: 12px;
+}
+
+/* ---------- Form boxes (dropdowns and longer text) ---------- */
+.staff-select,
+.staff-textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-body);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.staff-select {
+  height: 48px;
+  padding: 0 40px 0 16px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5L6 8l3.5-3.5' fill='none' stroke='%23d9434d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 16px center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.staff-textarea {
+  min-height: 84px;
+  padding: 12px 16px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.staff-textarea::placeholder {
+  color: #b3abad;
+}
+
+.staff-select:hover,
+.staff-textarea:hover {
+  border-color: var(--pink);
+}
+
+.staff-select:focus,
+.staff-textarea:focus {
+  border-color: var(--coral);
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(230, 83, 89, 0.12);
+}
+
+/* Two boxes side by side (one under the other on phones). */
+.staff-field-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+/* Pain 0–10: eleven small buttons in one row. */
+.choices-segmented.staff-pain {
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+}
+
+.choices-segmented.staff-pain button {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.choices-segmented.staff-decision {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.staff-call {
+  margin-top: 16px;
+}
+
+/* ---------- Consultations ---------- */
+.staff-consult-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.staff-consult {
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.staff-consult.is-open {
+  border-color: var(--pink);
+  box-shadow: var(--card-shadow);
+}
+
+.staff-consult-head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.staff-consult-head:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: -2px;
+  border-radius: var(--button-radius);
+}
+
+.staff-consult-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.staff-consult-question {
+  overflow: hidden;
+  font-size: var(--text-body);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staff-consult.is-open .staff-consult-question {
+  white-space: normal;
+}
+
+.staff-thread {
+  padding: 0 16px 16px;
+}
+
+.staff-messages {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 14px 0 0;
+  border-top: 1px dashed var(--line);
+  list-style: none;
+}
+
+.staff-message {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--blush-soft);
+}
+
+.staff-message.is-mine {
+  justify-self: end;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--blush);
+}
+
+.staff-message.is-question {
+  max-width: 100%;
+  border: 1px solid var(--line);
+  background: var(--white);
+}
+
+.staff-message-from {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+
+.staff-message p {
+  margin: 0;
+  font-size: var(--text-body);
+  line-height: 1.5;
+}
+
+/* ---------- My profile (read only) ---------- */
+.staff-profile-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.staff-profile-title h2 {
+  margin: 0;
+}
+
+.staff-profile-list {
+  margin: 16px 0 0;
+}
+
+.staff-profile-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.staff-profile-row:last-child {
+  border-bottom: 0;
+}
+
+.staff-profile-row dt {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.staff-profile-row dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* "Waiting for admin approval" card. */
+.staff-waiting {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  background: var(--blush-soft);
+}
+
+.staff-waiting h2 {
+  margin: 0;
+  font-size: var(--text-card);
+}
+
+.staff-waiting p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+
+/* ---------- Phones ---------- */
+@media (max-width: 700px) {
+  .staff-field-pair,
+  .choices-segmented.staff-decision {
+    grid-template-columns: 1fr;
+  }
+
+  .choices-segmented.staff-pain {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .staff-report-card {
+    grid-template-columns: auto 1fr;
+  }
+
+  .staff-report-side {
+    grid-column: 2;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .staff-consult-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .staff-message {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .staff-find-row {
+    grid-template-columns: 1fr;
+  }
+}

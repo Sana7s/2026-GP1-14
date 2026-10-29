@@ -133,7 +133,7 @@ export async function getCurrentAccount() {
 export function pageAfterLogin(account) {
   if (account.role === "admin") return "/admin";
   if (account.role === "patient") return "/patient";
-  return "/StaffApp"; // TODO: change to the staff page address when it's ready
+  return "/Staff"; // TODO: change to the staff page address when it's ready
 }
 
 // Sign out.
