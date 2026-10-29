@@ -126,6 +126,10 @@ function PatientHistory() {
                         </p>
                       </div>
                     )}
+
+                    <Link className="history-view-link" to={`/patient/reports/${encodeURIComponent(r.id)}`}>
+                      View full report →
+                    </Link>
                   </article>
                 );
               })

@@ -33,6 +33,7 @@ import TbsaPage from "./pages/TbsaPage.jsx";
 import FirstAidPage from "./pages/FirstAidPage.jsx";
 import ChangePasswordPage from "./pages/ChangePasswordPage.jsx";
 import StaffApp from "./pages/StaffApp.jsx";
+import ReportPage from "./pages/ReportPage.jsx";
 
 /* =====================================================================
    APP — the starting point of the website
@@ -72,7 +73,7 @@ function App() {
         <Route index element={<PatientHomePage />} />
         <Route path="assessment" element={<PatientEntry />} />
         <Route path="reports" element={<PatientHistory />} />
-        <Route path="reports/:reportId" element={<ComingSoonPage title="Report" />} />
+        <Route path="reports/:reportId" element={<ReportPage />} />
         <Route path="recovery" element={<TrackRecovery />} />
         <Route path="chat" element={<ComingSoonPage title="Wound-care chat" />} />
         <Route path="first-aid" element={<FirstAidPage />} />

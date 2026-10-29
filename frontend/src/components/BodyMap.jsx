@@ -164,14 +164,18 @@ function Part({ part, region }) {
  *   activeId   area currently open in the side panel
  *   counted    false when the burn is 1st degree (shown, not counted)
  *   disabled   true until an age is entered
+ *   readOnly   true to only show the marks (e.g. on a saved report): no tapping
  *   onPick(areaId, shapeId)  called when a shape is tapped
  *              (shapeId is null when chosen with the keyboard)
  */
-function BodyMap({ variant, chart, marks, activeId, counted, disabled, onPick }) {
+function BodyMap({ variant, chart, marks, activeId, counted, disabled, readOnly = false, onPick }) {
+  const canTap = !disabled && !readOnly;
   const g = SHAPES[variant];
 
   return (
-    <div className={`body-map${disabled ? " is-disabled" : ""}${counted ? "" : " is-not-counted"}`}>
+    <div
+      className={`body-map${disabled ? " is-disabled" : ""}${readOnly ? " is-read-only" : ""}${counted ? "" : " is-not-counted"}`}
+    >
       {["front", "back"].map((view) => {
         const shapes = buildShapes(g, view, chart.id === "adult");
         // Group the shapes by the chart's areas (keeps the drawing order).
@@ -204,13 +208,13 @@ function BodyMap({ variant, chart, marks, activeId, counted, disabled, onPick })
                     key={area.id}
                     className={`body-region ${state}${activeId === area.id ? " is-active" : ""}`}
                     style={state === "is-palms" ? { "--palm-fill": `url(#palm-dots-${view})` } : undefined}
-                    role="button"
-                    tabIndex={disabled ? -1 : 0}
+                    role={readOnly ? undefined : "button"}
+                    tabIndex={canTap ? 0 : -1}
                     aria-label={`${area.label}, ${percent}%${mark ? ", marked" : ""}`}
-                    aria-pressed={Boolean(mark)}
-                    onClick={(event) => !disabled && onPick(area.id, event.target.dataset.region ?? null)}
+                    aria-pressed={readOnly ? undefined : Boolean(mark)}
+                    onClick={(event) => canTap && onPick(area.id, event.target.dataset.region ?? null)}
                     onKeyDown={(event) => {
-                      if (disabled) return;
+                      if (!canTap) return;
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
                         onPick(area.id, null);
@@ -239,6 +243,13 @@ function BodyMap({ variant, chart, marks, activeId, counted, disabled, onPick })
                     {formatPercent(chart.areaOf[shape.region].value)}
                   </text>
                 ))}
+              {/* Patient's right and left. Front view: their right is on our left (like facing them). */}
+              <text x="40" y="60" className="body-side" aria-hidden="true">
+                {view === "front" ? "R" : "L"}
+              </text>
+              <text x="160" y="60" className="body-side" aria-hidden="true">
+                {view === "front" ? "L" : "R"}
+              </text>
             </svg>
             <figcaption>{view === "front" ? "Front" : "Back"}</figcaption>
           </figure>
