@@ -1,3 +1,4 @@
+import { showPopup } from "../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/AdminPage.jsx
    ---------------------------------------------------------------------
@@ -111,7 +112,6 @@ function AdminPage() {
   const [filter, setFilter] = useState("All"); // role filter for the requests
   const [selectedId, setSelectedId] = useState(null); // request being reviewed
   const [checks, setChecks] = useState({}); // ticked checks per request
-  const [toast, setToast] = useState(""); // short message after a decision
 
   // Sort the requests: burn specialists first (they unlock consultations),
   // then the ones that have waited the longest.
@@ -148,9 +148,7 @@ function AdminPage() {
 
   // Show a short message for a few seconds.
   const showToast = (message) => {
-    setToast(message);
-    window.clearTimeout(showToast.timer);
-    showToast.timer = window.setTimeout(() => setToast(""), 3500);
+    showPopup(message);
   };
 
   // Open a request in the review panel. On phones and tablets the panel
@@ -181,6 +179,7 @@ function AdminPage() {
 
   // Load the data once when the page opens.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the page only changes after Flask answer
     reload();
   }, [reload]);
 
@@ -192,7 +191,7 @@ function AdminPage() {
       await reload();
       showToast(message);
     } catch (problem) {
-      showToast(problem.message);
+      showPopup(problem.message, "error");
     }
   };
 
@@ -371,11 +370,7 @@ function AdminPage() {
       </div>
 
       {/* ---------- Short message after a decision ---------- */}
-      {toast && (
-        <div className="admin-toast" role="status">
-          {toast}
-        </div>
-      )}
+
     </section>
   );
 }

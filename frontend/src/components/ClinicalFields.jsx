@@ -56,6 +56,7 @@ function ClinicalFields({ value, onChange, problem, idPrefix = "clinical" }) {
             <input
               id={id("injuryDate")}
               type="date"
+              min="1900-01-01"
               max={today()}
               value={value.injuryDate}
               onChange={(event) => onChange("injuryDate", event.target.value)}

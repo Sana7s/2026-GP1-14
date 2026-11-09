@@ -1,3 +1,4 @@
+import { showPopup, useNotificationState } from "../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/ChangePasswordPage.jsx
    ---------------------------------------------------------------------
@@ -39,10 +40,10 @@ const SERVER_FIELD = { currentPassword: "current", newPassword: "password" };
 
 function ChangePasswordPage() {
   const [values, setValues] = useState({ current: "", password: "", confirm: "" });
-  const [problems, setProblems] = useState({});
+  const [problems, setProblems] = useNotificationState({});
   const [show, setShow] = useState(false); // show the passwords as text?
   const [saving, setSaving] = useState(false);
-  const [serverMessage, setServerMessage] = useState("");
+  const [serverMessage, setServerMessage] = useNotificationState("", "error"); // shown as a pop-up
   const [done, setDone] = useState(false);
 
   const update = (key, value) => {
@@ -80,6 +81,7 @@ function ChangePasswordPage() {
       });
       setValues({ current: "", password: "", confirm: "" });
       setDone(true);
+      showPopup("Password changed successfully.");
     } catch (error) {
       // e.g. "Your current password is incorrect." → under that box.
       const box = SERVER_FIELD[error.field];

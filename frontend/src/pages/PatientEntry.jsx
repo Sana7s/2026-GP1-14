@@ -1,3 +1,4 @@
+import { useNotificationState } from "../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/PatientEntry.jsx
    Patient assessment flow aligned with BBA criteria & styles.css
@@ -119,13 +120,13 @@ function PatientEntry() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [photo, setPhoto] = useState(null);
   const [photoUrl, setPhotoUrl] = useState("");
-  const [photoProblem, setPhotoProblem] = useState("");
+  const [photoProblem, setPhotoProblem] = useNotificationState("");
   const [missing, setMissing] = useState([]);
   const [showAlert, setShowAlert] = useState(false);
   const [report, setReport] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [saving, setSaving] = useState(false); // waiting for Flask?
-  const [saveProblem, setSaveProblem] = useState(""); // message if saving failed
+  const [saveProblem, setSaveProblem] = useNotificationState(""); // message if saving failed
   const [tbsa, setTbsa] = useState(null); // latest result from the body map
   const [mapKey, setMapKey] = useState(0); // change it to clear the body map
   const fileInputRef = useRef(null);

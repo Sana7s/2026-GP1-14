@@ -1,3 +1,4 @@
+import { showPopup, useNotificationState } from "../../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/staff/StaffReportPage.jsx
    ---------------------------------------------------------------------
@@ -21,7 +22,7 @@ import { api } from "../../auth.js";
 import ClinicalFields from "../../components/ClinicalFields.jsx";
 import { formatPercent } from "../../tbsa/tbsaCharts.js";
 import { ReportPaper, ReportSection } from "../ReportPage.jsx";
-import { FindReport } from "./StaffReportsPage.jsx";
+import FindReport from "../../components/FindReport.jsx";
 import {
   CONSULT_STATUS,
   DEPTHS,
@@ -37,8 +38,14 @@ function StaffReportPage() {
   const { reportId } = useParams();
   const location = useLocation();
   const [data, setData] = useState(null); // { report, clinical, reviews, consultations, isSpecialist }
-  const [loadProblem, setLoadProblem] = useState("");
-  const [notice, setNotice] = useState(location.state?.notice ?? "");
+  const [loadProblem, setLoadProblem] = useNotificationState("");
+
+  useEffect(() => {
+    if (location.state?.notice) {
+      showPopup(location.state.notice, /but .*not/i.test(location.state.notice) ? "error" : "success");
+      window.history.replaceState({ ...window.history.state, usr: null }, "");
+    }
+  }, [location.state?.notice]);
 
   // (Re)load the report from the database.
   const load = useCallback(
@@ -49,7 +56,7 @@ function StaffReportPage() {
           setLoadProblem("");
         })
         .catch((error) => setLoadProblem(error.message)),
-    [reportId],
+    [reportId, setLoadProblem],
   );
 
   useEffect(() => {
@@ -69,19 +76,14 @@ function StaffReportPage() {
   }
   if (!data) return <p className="patient-empty profile-loading">Loading the report…</p>;
 
-  const { report, clinical, reviews, consultations, isSpecialist } = data;
+  const { report, clinical, reviews, consultations, isSpecialist, staffActivity = [] } = data;
   const latest = reviews[0];
 
   return (
     <section className="guest-page staff-report-page">
       <div className="guest-container report-container">
         <Toolbar />
-
-        {notice && (
-          <p className="report-updated" role="status">
-            {notice}
-          </p>
-        )}
+        <header className="bc-page-heading"><h1>Assessment report</h1><p>Report {report.id} · Healthcare staff workspace</p></header>
 
         {/* ----- Review status ----- */}
         {report.review ? (
@@ -120,6 +122,20 @@ function StaffReportPage() {
           )}
         </ReportPaper>
 
+        <section className="bc-staff-activity" aria-label="Healthcare staff activity log">
+          <h2>Healthcare staff activity log</h2>
+          <p className="bc-log-description">Recorded updates and reviews, with the staff member’s name and time.</p>
+          {staffActivity.length === 0 ? <p>No healthcare staff updates have been recorded yet.</p> : (
+            <ol className="bc-activity-list">{staffActivity.map((entry) => (
+              <li key={entry.id}>
+                <strong>{entry.actor}</strong> <span>{entry.action}</span>
+                <p>{entry.detail}</p>
+                <time dateTime={entry.at}>{niceDateTime(entry.at)}</time>
+              </li>
+            ))}</ol>
+          )}
+        </section>
+
         {/* ----- What staff can do ----- */}
         <div className="staff-report-actions">
           <ClinicalCard
@@ -127,7 +143,7 @@ function StaffReportPage() {
             clinical={clinical}
             onSaved={(next) => {
               setData((old) => ({ ...old, clinical: next }));
-              setNotice("Clinical details saved.");
+              showPopup("Clinical details saved.");
               load(); // the change history may have a new line
             }}
           />
@@ -135,7 +151,7 @@ function StaffReportPage() {
             report={report}
             reviewed={reviews.length > 0}
             onSaved={() => {
-              setNotice("Your review is saved. The patient can no longer edit this report.");
+              showPopup("Your review is saved. The patient can no longer edit this report.");
               load();
               window.scrollTo(0, 0);
             }}
@@ -145,7 +161,7 @@ function StaffReportPage() {
             consultations={consultations}
             isSpecialist={isSpecialist}
             onAsked={() => {
-              setNotice("Your question was sent to the burn specialists.");
+              showPopup("Your question was sent to the burn specialists.");
               load();
             }}
           />
@@ -235,7 +251,7 @@ function ReviewItem({ review }) {
 function ClinicalCard({ reportId, clinical, onSaved }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(EMPTY_CLINICAL);
-  const [problem, setProblem] = useState(null);
+  const [problem, setProblem] = useNotificationState(null);
   const [saving, setSaving] = useState(false);
   const empty = clinical.pain === "";
 
@@ -312,7 +328,7 @@ const EMPTY_REVIEW = { decision: "", depth: "", adjustedTbsa: "", reason: "", no
 function ReviewCard({ report, reviewed, onSaved }) {
   const [review, setReview] = useState(EMPTY_REVIEW);
   const [open, setOpen] = useState(!reviewed);
-  const [problem, setProblem] = useState(null);
+  const [problem, setProblem] = useNotificationState(null);
   const [saving, setSaving] = useState(false);
   const set = (key, value) => {
     setReview((old) => ({ ...old, [key]: value }));
@@ -471,7 +487,7 @@ function ReviewCard({ report, reviewed, onSaved }) {
 /* ---------- Ask a burn specialist ---------- */
 function ConsultCard({ reportId, consultations, isSpecialist, onAsked }) {
   const [question, setQuestion] = useState("");
-  const [problem, setProblem] = useState("");
+  const [problem, setProblem] = useNotificationState("");
   const [sending, setSending] = useState(false);
 
   const ask = async (event) => {

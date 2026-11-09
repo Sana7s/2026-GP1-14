@@ -25,6 +25,10 @@
     15. Forgot password page
     16. PATIENT PAGES
     17. TBSA CALCULATOR
+    18. First aid guide
+    19. Healthcare staff pages
+    20. Page titles and the staff activity log
+    21. Pop-up messages (success, warning, error)
     18. FIRST AID GUIDE 
     19. HEALTHCARE STAFF PAGES
 
@@ -7136,15 +7140,6 @@ button.account-menu-item {
   gap: 10px;
 }
 
-.staff-find-row input {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.staff-find-row input::placeholder {
-  text-transform: none;
-}
 
 /* Consultation numbers on the home page. */
 .staff-stats {
@@ -7643,5 +7638,255 @@ button.account-menu-item {
 @media (max-width: 420px) {
   .staff-find-row {
     grid-template-columns: 1fr;
+  }
+}
+/* ---------- Find a patient's report: results by name ---------- */
+.staff-find-results {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.staff-find-result {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--white);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 180ms ease;
+}
+
+.staff-find-result:hover {
+  border-color: var(--pink);
+}
+
+.staff-find-result:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+}
+
+.staff-find-result-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.staff-find-result-main strong {
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.staff-find-empty {
+  margin-top: 14px;
+}
+
+/* =====================================================================
+   20. PAGE TITLES AND THE STAFF ACTIVITY LOG
+   The "Assessment report" title on both report pages, and the
+   "Healthcare staff activity log" on the staff report page
+   (pages/staff/StaffReportPage.jsx).
+   ===================================================================== */
+
+.bc-page-heading {
+  margin: 12px 0 28px;
+  text-align: left;
+}
+
+.bc-page-heading h1 {
+  margin: 0 0 8px;
+  font-size: clamp(1.7rem, 3vw, 2.3rem);
+  line-height: 1.2;
+}
+
+.bc-page-heading p,
+.bc-log-description {
+  margin: 0;
+  color: var(--muted);
+}
+
+.bc-staff-activity {
+  margin: 28px 0;
+  padding: 25px;
+  border: 1px solid var(--line);
+  border-radius: var(--card-radius);
+  background: var(--white);
+}
+
+.bc-staff-activity h2 {
+  margin: 0 0 10px;
+  font-size: var(--text-card);
+}
+
+.bc-activity-list {
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bc-activity-list li {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.bc-activity-list li > span {
+  margin-left: 8px;
+}
+
+.bc-activity-list li p {
+  margin: 5px 0;
+}
+
+.bc-activity-list time {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+/* =====================================================================
+   21. POP-UP MESSAGES  (components/PopupNotifications.jsx)
+   Small cards at the top right that close by themselves after a few
+   seconds: green = success, amber = "please check", red = error,
+   blue = reminder. The red messages under form boxes (.field-error) are
+   hidden: their text is shown in a pop-up instead, and the box itself
+   still turns red.
+   ===================================================================== */
+
+.burncare-popup-stack {
+  position: fixed;
+  top: 22px;
+  right: 22px;
+  z-index: 99999;
+  display: grid;
+  gap: 12px;
+  width: min(390px, calc(100vw - 32px));
+  pointer-events: none; /* clicks pass through the empty space */
+}
+
+.burncare-popup {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #cbe7dc;
+  border-left: 4px solid #27856d;
+  border-radius: 14px;
+  background: var(--white);
+  color: #17382f;
+  font-family: inherit;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  pointer-events: auto;
+  animation: burncare-popup-in 0.22s ease-out;
+}
+
+.burncare-popup-icon {
+  display: grid;
+  flex: 0 0 27px;
+  height: 27px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e5f6ee;
+  color: #147657;
+  font-weight: 800;
+}
+
+.burncare-popup-content {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+  font-size: var(--text-body);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.burncare-popup-content strong {
+  font-size: 15px;
+}
+
+.burncare-popup-close {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.burncare-popup-close:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* Red: something went wrong. */
+.burncare-popup--error {
+  border-color: #f1c6c6;
+  border-left-color: #b73b3b;
+  color: #6f2222;
+}
+
+.burncare-popup--error .burncare-popup-icon {
+  background: #ffecec;
+  color: #b73b3b;
+}
+
+/* Amber: "Please check" (a missing or wrong answer). */
+.burncare-popup--warning {
+  border-color: #f2dfb5;
+  border-left-color: #b77916;
+  color: #714a0d;
+}
+
+.burncare-popup--warning .burncare-popup-icon {
+  background: #fff3d6;
+  color: #9b620c;
+}
+
+/* Blue: a reminder. */
+.burncare-popup--info {
+  border-color: #c8def4;
+  border-left-color: #3879b9;
+  color: #234e7c;
+}
+
+.burncare-popup--info .burncare-popup-icon {
+  background: #e6f2ff;
+  color: #276aa5;
+}
+
+/* The red text under form boxes is shown in a pop-up instead. */
+.field-error {
+  display: none !important;
+}
+
+@keyframes burncare-popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 600px) {
+  .burncare-popup-stack {
+    top: 12px;
+    right: 12px;
+    width: calc(100vw - 24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .burncare-popup {
+    animation: none;
   }
 }

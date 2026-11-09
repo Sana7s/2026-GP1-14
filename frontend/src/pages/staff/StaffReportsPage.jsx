@@ -2,8 +2,8 @@
    BurnCare — pages/staff/StaffReportsPage.jsx
    ---------------------------------------------------------------------
    Reports (/staff/reports).
-     1. Open a report by its Report ID — the patient shares the ID with
-        the staff member (it's at the top of their report).
+     1. Find a patient's report — by its Report ID (the patient shares
+        it) or by the patient's name (components/FindReport.jsx).
      2. Your reports — the reports this staff member assessed, reviewed,
         or asked/answered a specialist about (GET /api/staff/reports),
         with a search box.
@@ -12,10 +12,11 @@
    ===================================================================== */
 
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { api } from "../../auth.js";
+import FindReport from "../../components/FindReport.jsx";
 import { formatPercent } from "../../tbsa/tbsaCharts.js";
-import { REPORT_ID_PATTERN, SOURCE_LABEL, cleanReportId, resultOf } from "../../staffData.js";
+import { SOURCE_LABEL, resultOf } from "../../staffData.js";
 
 function StaffReportsPage() {
   // null = loading, "error" = couldn't load, otherwise the list from Flask.
@@ -42,14 +43,14 @@ function StaffReportsPage() {
       <header className="staff-page-head">
         <div>
           <h1>Reports</h1>
-          <p>Open a patient&apos;s report with its Report ID, or go back to a report you worked on.</p>
+          <p>Find a patient&apos;s report by its Report ID or the patient&apos;s name, or go back to a report you worked on.</p>
         </div>
         <Link to="/staff/assessment" className="button button-primary">
           New assessment
         </Link>
       </header>
 
-      {/* ===== 1. Open by Report ID ===== */}
+      {/* ===== 1. Find by Report ID or patient name ===== */}
       <FindReport />
 
       {/* ===== 2. Your reports ===== */}
@@ -93,57 +94,6 @@ function StaffReportsPage() {
         )}
       </section>
     </div>
-  );
-}
-
-// "Open a report by its Report ID" box (also used on the report page
-// when an ID is not found).
-export function FindReport({ startWith = "" }) {
-  const navigate = useNavigate();
-  const [reportId, setReportId] = useState(startWith);
-  const [problem, setProblem] = useState("");
-
-  const open = (event) => {
-    event.preventDefault();
-    const id = cleanReportId(reportId);
-    if (!REPORT_ID_PATTERN.test(id)) {
-      setProblem("A Report ID looks like BC-261029-7K4QX. Please check it and try again.");
-      return;
-    }
-    navigate(`/staff/reports/${id}`);
-  };
-
-  return (
-    <section className="patient-card" aria-labelledby="find-title">
-      <div className="patient-card-head">
-        <h2 id="find-title">Open a report by its ID</h2>
-      </div>
-      <form className="staff-find" onSubmit={open} noValidate>
-        <label className="field-label" htmlFor="find-report-id">
-          Report ID
-        </label>
-        <p className="field-hint">Patients find the Report ID at the top of their report.</p>
-        <div className="staff-find-row">
-          <div className="text-input">
-            <input
-              id="find-report-id"
-              value={reportId}
-              onChange={(event) => {
-                setReportId(event.target.value);
-                setProblem("");
-              }}
-              placeholder="BC-261029-7K4QX"
-              autoComplete="off"
-              spellCheck="false"
-            />
-          </div>
-          <button type="submit" className="button button-primary">
-            Open report
-          </button>
-        </div>
-        {problem && <p className="field-error">{problem}</p>}
-      </form>
-    </section>
   );
 }
 
