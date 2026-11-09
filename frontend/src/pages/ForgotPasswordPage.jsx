@@ -1,3 +1,4 @@
+import { useNotificationState } from "../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/ForgotPasswordPage.jsx
    ---------------------------------------------------------------------
@@ -125,7 +126,7 @@ function ForgotPasswordPage() {
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const [problems, setProblems] = useState({}); // red message per field
+  const [problems, setProblems] = useNotificationState({}); // red message per field
   const [serverMessage, setServerMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0); // countdown for "Resend code"

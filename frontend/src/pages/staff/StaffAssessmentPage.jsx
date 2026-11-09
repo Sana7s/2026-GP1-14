@@ -1,3 +1,4 @@
+import { useNotificationState } from "../../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/staff/StaffAssessmentPage.jsx
    ---------------------------------------------------------------------
@@ -47,9 +48,9 @@ function StaffAssessmentPage() {
   const [photo, setPhoto] = useState(null);
   const [photoUrl, setPhotoUrl] = useState("");
   const [dragging, setDragging] = useState(false);
-  const [problem, setProblem] = useState(null); // { key, message } — the first missing answer
+  const [problem, setProblem] = useNotificationState(null); // { key, message } — the first missing answer
   const [saving, setSaving] = useState(false);
-  const [saveProblem, setSaveProblem] = useState("");
+  const [saveProblem, setSaveProblem] = useNotificationState("");
   const fileInputRef = useRef(null);
   const child = isChild(form.age);
 
@@ -65,7 +66,7 @@ function StaffAssessmentPage() {
   const onMapChange = useCallback((result) => {
     setTbsa(result);
     if (result?.breakdown.length) setProblem((old) => (old?.key === "tbsa" ? null : old));
-  }, []);
+  }, [setProblem]);
   const setClinicalField = (key, value) => {
     setClinical((old) => ({ ...old, [key]: value }));
     clear(key);

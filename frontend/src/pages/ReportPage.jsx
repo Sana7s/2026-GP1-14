@@ -1,3 +1,4 @@
+import { showPopup, useNotificationState } from "../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/ReportPage.jsx
    ---------------------------------------------------------------------
@@ -76,9 +77,8 @@ function marksFromAreas(areas, ageGroup) {
 function ReportPage() {
   const { reportId } = useParams();
   const [report, setReport] = useState(null);
-  const [loadProblem, setLoadProblem] = useState("");
+  const [loadProblem, setLoadProblem] = useNotificationState("");
   const [editing, setEditing] = useState(false);
-  const [notice, setNotice] = useState(""); // "Report updated" after saving
 
   // Load the report from the database.
   useEffect(() => {
@@ -89,7 +89,7 @@ function ReportPage() {
     return () => {
       isCurrent = false;
     };
-  }, [reportId]);
+  }, [reportId, setLoadProblem]);
 
   if (loadProblem) {
     return (
@@ -113,7 +113,7 @@ function ReportPage() {
         onSaved={(updated) => {
           setReport(updated);
           setEditing(false);
-          setNotice("Report updated. The burn size and the result were worked out again.");
+          showPopup("Report updated. The burn size and result were recalculated.");
           window.scrollTo(0, 0);
         }}
       />
@@ -133,7 +133,6 @@ function ReportPage() {
               type="button"
               className="button button-primary"
               onClick={() => {
-                setNotice("");
                 setEditing(true);
                 window.scrollTo(0, 0);
               }}
@@ -142,11 +141,8 @@ function ReportPage() {
             </button>
           )}
         </div>
-        {notice && (
-          <p className="report-updated" role="status">
-            {notice}
-          </p>
-        )}
+
+        <header className="bc-page-heading"><h1>Assessment report</h1><p>Review your assessment details and report history.</p></header>
         {report.review && (
           <p className="report-locked" role="note">
             <LockIcon />
@@ -365,7 +361,7 @@ function ReportEditor({ report, onCancel, onSaved }) {
   const [form, setForm] = useState({ ...report.form, conditions: [...report.form.conditions] });
   const [initialMarks] = useState(() => marksFromAreas(report.areas, report.form.age));
   const [tbsa, setTbsa] = useState(null); // latest result from the body map
-  const [problem, setProblem] = useState("");
+  const [problem, setProblem] = useNotificationState("");
   const [saving, setSaving] = useState(false);
 
   const child = isChild(form.age);

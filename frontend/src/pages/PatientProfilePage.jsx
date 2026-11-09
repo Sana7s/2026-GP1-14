@@ -1,3 +1,4 @@
+import { showPopup, useNotificationState } from "../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/PatientProfilePage.jsx
    ---------------------------------------------------------------------
@@ -120,11 +121,10 @@ function PatientProfilePage() {
   const [info, setInfo] = useState(null); // what Flask sent (email, phone code)
   const [form, setForm] = useState(null); // the values in the boxes
   const [saved, setSaved] = useState(null); // the last saved values
-  const [loadProblem, setLoadProblem] = useState("");
-  const [problems, setProblems] = useState({});
+  const [loadProblem, setLoadProblem] = useNotificationState("");
+  const [problems, setProblems] = useNotificationState({});
   const [saving, setSaving] = useState(false);
-  const [serverMessage, setServerMessage] = useState("");
-  const [status, setStatus] = useState(""); // "saved" after saving
+  const [serverMessage, setServerMessage] = useNotificationState("", "error"); // shown as a pop-up
 
   // Load the profile from the database once.
   useEffect(() => {
@@ -140,7 +140,7 @@ function PatientProfilePage() {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [setLoadProblem]);
 
   if (loadProblem) return <p className="patient-empty profile-loading">{loadProblem}</p>;
   if (!form) return <p className="patient-empty profile-loading">Loading your profile…</p>;
@@ -152,7 +152,6 @@ function PatientProfilePage() {
   const update = (key, value) => {
     const next = { ...form, [key]: value };
     setForm(next);
-    setStatus("");
     setServerMessage("");
     if (problems[key]) setProblems({ ...problems, [key]: checkField(key, next) });
   };
@@ -197,7 +196,7 @@ function PatientProfilePage() {
       setForm(toForm(data.profile));
       setSaved(toForm(data.profile));
       setAccount(data.user); // the top bar shows the new name
-      setStatus("saved");
+      showPopup("Profile changes saved successfully.");
     } catch (error) {
       // e.g. a phone problem from the server → under the phone box.
       if (error.field && FIELDS.includes(error.field)) {
@@ -357,12 +356,7 @@ function PatientProfilePage() {
           <button type="submit" className="button button-primary profile-save-button" disabled={!hasChanges || saving}>
             {saving ? "Saving…" : "Save changes"}
           </button>
-          {status === "saved" && !hasChanges && (
-            <p className="profile-saved" role="status">
-              <CheckIcon />
-              Changes saved
-            </p>
-          )}
+
         </div>
       </form>
 
@@ -407,14 +401,6 @@ function ProfileField({ id, label, extra, optional, prefix, hiddenLabel, value, 
         </p>
       )}
     </div>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }
 

@@ -1,3 +1,4 @@
+import { useNotificationState } from "../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/LoginPage.jsx
    ---------------------------------------------------------------------
@@ -65,7 +66,7 @@ function LoginPage() {
     email: location.state?.email ?? "",
     password: "",
   });
-  const [problems, setProblems] = useState({}); // problem message per field
+  const [problems, setProblems] = useNotificationState({}); // problem message per field
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false); // waiting for Flask?
   const [serverMessage, setServerMessage] = useState(""); // message from the server

@@ -1,3 +1,4 @@
+import { showPopup, useNotificationState } from "../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/TrackRecovery.jsx
    Recovery timeline with symptom check & BBA warning triggers.
@@ -14,13 +15,15 @@ function TrackRecovery() {
   const [entries, setEntries] = useState([]);
   const [assessmentList, setAssessmentList] = useState([]);
   const [selectedReport, setSelectedReport] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  // Today's date in the user's time zone (the latest date that can be chosen).
+  const [today] = useState(() => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10));
+  const [date, setDate] = useState(today);
   const [photo, setPhoto] = useState(null);
   const [photoUrl, setPhotoUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [hasFever, setHasFever] = useState("No");
   const [increasingRedness, setIncreasingRedness] = useState("No");
-  const [problem, setProblem] = useState("");
+  const [problem, setProblem] = useNotificationState("");
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -110,6 +113,7 @@ function TrackRecovery() {
       if (response.ok) {
         const savedEntry = await response.json();
         setEntries((prev) => [savedEntry, ...prev]);
+        showPopup("Recovery entry saved successfully.");
         removePhoto();
         setNotes("");
         setHasFever("No");
@@ -179,6 +183,8 @@ function TrackRecovery() {
                   <input
                     id="rec-date"
                     type="date"
+                    min="1900-01-01"
+                    max={today}
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     required

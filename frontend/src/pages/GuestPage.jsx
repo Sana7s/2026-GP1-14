@@ -1,3 +1,5 @@
+import { showPopup } from "../components/PopupNotifications.jsx";
+import { useNotificationState } from "../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/GuestPage.jsx
    ---------------------------------------------------------------------
@@ -169,14 +171,14 @@ function GuestPage() {
   const [form, setForm] = useState(EMPTY_FORM); // screen 2 answers
   const [photo, setPhoto] = useState(null); // the chosen photo file
   const [photoUrl, setPhotoUrl] = useState(""); // preview link for the photo
-  const [photoProblem, setPhotoProblem] = useState(""); // wrong file type/size
+  const [photoProblem, setPhotoProblem] = useNotificationState(""); // wrong file type/size
   const [missing, setMissing] = useState([]); // keys of unanswered questions
   const [showAlert, setShowAlert] = useState(false); // "missing answer" pop-up
   const [showCall, setShowCall] = useState(false); // "Call 997" pop-up
   const [report, setReport] = useState(null); // the finished report
   const [dragging, setDragging] = useState(false); // photo dragged over box?
   const [saving, setSaving] = useState(false); // waiting for the server?
-  const [saveError, setSaveError] = useState(""); // message if saving failed
+  const [saveError, setSaveError] = useNotificationState(""); // message if saving failed
   const [tbsa, setTbsa] = useState(null); // latest result from the body map
   const [mapKey, setMapKey] = useState(0); // change it to clear the body map
   const fileInputRef = useRef(null);
@@ -298,7 +300,7 @@ function GuestPage() {
     const notAnswered = required.filter((q) => !q.answered).map((q) => q.key);
     if (notAnswered.length) {
       setMissing(notAnswered);
-      setShowAlert(true);
+      showPopup("Please complete the highlighted required fields.", "warning");
       goToQuestion(notAnswered[0]);
       return false;
     }
