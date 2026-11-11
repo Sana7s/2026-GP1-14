@@ -34,8 +34,6 @@ import patient
 import staff
 from config import Config
 from flask_cors import CORS
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
-from healthcare_staff.app import new_app as create_staff_app
 
 
 def create_app():
@@ -70,6 +68,14 @@ def create_app():
             from werkzeug.utils import secure_filename
 
             entry_date = request.form.get("date")
+            from datetime import date as calendar_date
+            try:
+                parsed_date = calendar_date.fromisoformat(entry_date or "")
+            except (ValueError, TypeError):
+                return jsonify({"error": "Please choose a valid recovery date."}), 400
+            if parsed_date < calendar_date(1900, 1, 1) or parsed_date > calendar_date.today():
+                return jsonify({"error": "Recovery date must be between 1900 and today."}), 400
+
             notes = request.form.get("notes", "").strip()
             selected_report = request.form.get("reportCode", "").strip()
             has_fever = request.form.get("hasFever") == "Yes"
@@ -205,8 +211,6 @@ def create_app():
 
 
 app = create_app()
-# Keep staff demo data isolated in SQLite, while exposing both applications on one port.
-app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/staff": create_staff_app()})
 
 if __name__ == "__main__":
     # debug=True restarts the server when you save a file (development only).

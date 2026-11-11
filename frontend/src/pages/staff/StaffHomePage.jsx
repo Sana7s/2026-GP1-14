@@ -3,7 +3,8 @@
    ---------------------------------------------------------------------
    The healthcare staff home page (/staff). Same layout as the patient
    home page:
-     1. Welcome + quick actions (New assessment, Open a report by its ID)
+     1. Welcome + quick actions (New assessment, find a report by its
+        Report ID or the patient's name)
      2. Recent reports           |  3. Consultations
    Where the information comes from: GET /api/staff/summary (staff.py).
    Staff waiting for the admin's approval see their status instead.
@@ -11,14 +12,13 @@
    ===================================================================== */
 
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { Chevron } from "../../components/Chevron.jsx";
+import FindReport from "../../components/FindReport.jsx";
 import { api } from "../../auth.js";
 import {
   APPROVAL,
-  REPORT_ID_PATTERN,
   SOURCE_LABEL,
-  cleanReportId,
   isApproved,
   isSpecialist,
   resultOf,
@@ -44,20 +44,6 @@ function StaffHomePage() {
 
 /* ---------- 1. Welcome + quick actions ---------- */
 function Welcome({ account }) {
-  const navigate = useNavigate();
-  const [reportId, setReportId] = useState("");
-  const [problem, setProblem] = useState("");
-
-  const openReport = (event) => {
-    event.preventDefault();
-    const id = cleanReportId(reportId);
-    if (!REPORT_ID_PATTERN.test(id)) {
-      setProblem("A Report ID looks like BC-261029-7K4QX. Please check it and try again.");
-      return;
-    }
-    navigate(`/staff/reports/${id}`);
-  };
-
   return (
     <section className="patient-card patient-hero staff-hero" aria-labelledby="hero-title">
       <div className="patient-hero-copy">
@@ -77,32 +63,8 @@ function Welcome({ account }) {
         </div>
       </div>
 
-      {/* Open a report a patient shared with you, by its Report ID. */}
-      <form className="staff-find staff-find-hero" onSubmit={openReport} noValidate>
-        <label className="field-label" htmlFor="home-report-id">
-          Open a patient&apos;s report
-        </label>
-        <p className="field-hint">Patients find the Report ID at the top of their report.</p>
-        <div className="staff-find-row">
-          <div className="text-input">
-            <input
-              id="home-report-id"
-              value={reportId}
-              onChange={(event) => {
-                setReportId(event.target.value);
-                setProblem("");
-              }}
-              placeholder="BC-261029-7K4QX"
-              autoComplete="off"
-              spellCheck="false"
-            />
-          </div>
-          <button type="submit" className="button button-dark">
-            Open
-          </button>
-        </div>
-        {problem && <p className="field-error">{problem}</p>}
-      </form>
+      {/* Find a report a patient shared: by its Report ID or the patient's name. */}
+      <FindReport variant="hero" />
     </section>
   );
 }

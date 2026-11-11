@@ -8,6 +8,8 @@ addresses (role_required checks it).
 API addresses (all start with /api/staff):
   GET  /summary                     the staff home page: recent reports,
                                     waiting consultations, counts
+  GET  /find?q=...                  find a patient's reports by the patient's
+                                    name or the hospital file number
   GET  /reports?q=...               the reports this staff member works on:
                                     made by them, reviewed by them, or with
                                     a consultation they asked or answered
@@ -138,6 +140,38 @@ def reviews_of(assessment_id):
     } for r in rows]
 
 
+def staff_activity_of(assessment_id):
+    """Chronological staff activity from immutable field edits and clinical reviews."""
+    rows = query_all(
+        """
+        SELECT e.edit_id AS id, e.field_name, e.old_value, e.new_value,
+               a.full_name AS actor, a.role AS actor_role,
+               TO_CHAR(e.edited_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS at
+        FROM assessment_edits e
+        JOIN accounts a ON a.account_id = e.edited_by
+        WHERE e.assessment_id = %s AND a.role = 'staff'
+        ORDER BY e.edited_at DESC, e.edit_id DESC
+        """, (assessment_id,)
+    )
+    changes = [{
+        "id": f"edit-{r['id']}", "action": "Updated clinical information",
+        "actor": r["actor"], "at": r["at"],
+        "detail": assessments.FIELD_LABELS.get(r["field_name"], r["field_name"]),
+    } for r in rows]
+    reviews = query_all(
+        """
+        SELECT r.clinical_review_id AS id, a.full_name AS actor, r.reason,
+               TO_CHAR(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS at
+        FROM clinical_reviews r LEFT JOIN accounts a ON a.account_id = r.reviewed_by
+        WHERE r.assessment_id = %s ORDER BY r.created_at DESC
+        """, (assessment_id,)
+    )
+    changes.extend({"id": f"review-{r['id']}", "action": "Reviewed assessment",
+                    "actor": r["actor"] or "Former staff member", "at": r["at"],
+                    "detail": r["reason"] or "Clinical review"} for r in reviews)
+    return sorted(changes, key=lambda item: item["at"], reverse=True)
+
+
 def consultations_of(user, assessment_id):
     """The consultations about this report that this staff member may see."""
     rows = query_all(
@@ -228,6 +262,39 @@ def summary(user):
     })
 
 
+@bp.get("/find")
+@role_required("staff")
+def find_patient_reports(user):
+    """Reports of patients whose NAME (or hospital file number) contains
+    the typed text, newest first. At least 3 letters, at most 20 results,
+    so staff look up one patient rather than browse everyone."""
+    query = " ".join(str(request.args.get("q") or "").split())[:60]
+    if len(query) < 3:
+        return error("Please type at least 3 letters of the patient's name.", field="q")
+    rows = query_all(
+        """
+        SELECT a.report_code, a.decision, a.cause, a.age_group, a.medical_record_no,
+               TO_CHAR(a.created_at, 'FMDD Mon YYYY, HH24:MI') AS created,
+               p.full_name AS patient_name
+        FROM assessments a
+        LEFT JOIN accounts p ON p.account_id = a.patient_id
+        WHERE p.full_name ILIKE %(like)s OR a.medical_record_no ILIKE %(like)s
+        ORDER BY a.created_at DESC
+        LIMIT 20
+        """,
+        {"like": f"%{query}%"},
+    )
+    return jsonify({"results": [{
+        "id": r["report_code"],
+        "patientName": r["patient_name"] or "",
+        "patientRef": r["medical_record_no"] or "",
+        "decision": DECISION_FOR_PAGE[r["decision"]],
+        "cause": r["cause"],
+        "age": r["age_group"],
+        "createdAt": r["created"],
+    } for r in rows]})
+
+
 @bp.get("/reports")
 @role_required("staff")
 def list_reports(user):
@@ -256,6 +323,7 @@ def get_report(user, report_code):
         "report": report_json(assessment_id),
         "clinical": clinical_json(details),
         "reviews": reviews_of(assessment_id),
+        "staffActivity": staff_activity_of(assessment_id),
         "consultations": consultations_of(user, assessment_id),
         "isSpecialist": is_specialist(user),
     })
@@ -286,7 +354,7 @@ def save_clinical(user, report_code):
     # (filling them in the first time is not a "change").
     for field, new in values.items():
         before = old[field]
-        if before is None or str(before) == str(new):
+        if (before is None and new is None) or str(before) == str(new):
             continue
         long_text = field in ("medical_history", "clinical_notes")
         execute(
@@ -295,8 +363,8 @@ def save_clinical(user, report_code):
             VALUES (%s, %s, %s, %s, %s)
             """,
             (assessment_id, user["account_id"], field,
-             "(previous text)" if long_text else str(before),
-             "(updated)" if long_text else (str(new) if new is not None else None)),
+             None if before is None else ("(previous text)" if long_text else str(before)),
+             None if new is None else ("(updated)" if long_text else str(new))),
         )
     commit()
     return jsonify({"clinical": clinical_json(query_one(

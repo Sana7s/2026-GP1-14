@@ -41,6 +41,7 @@ import StaffReportPage from "./pages/staff/StaffReportPage.jsx";
 import StaffConsultationsPage from "./pages/staff/StaffConsultationsPage.jsx";
 import StaffProfilePage from "./pages/staff/StaffProfilePage.jsx";
 import AdminTopBar from "./components/AdminTopBar.jsx";
+import PopupNotifications from "./components/PopupNotifications.jsx";
 
 /* =====================================================================
    APP — the starting point of the website
@@ -74,6 +75,8 @@ function App() {
 
   // Choose which page to show based on the web address.
   return (
+    <>
+    <PopupNotifications />
     <Routes>
       {/* ===== Patient pages: show the top bar, then the page itself ===== */}
       <Route path="/patient" element={<PatientTopBar />}>
@@ -135,6 +138,7 @@ function App() {
         }
       />
     </Routes>
+    </>
   );
 }
 

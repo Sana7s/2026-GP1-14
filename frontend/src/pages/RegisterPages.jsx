@@ -1,3 +1,4 @@
+import { useNotificationState } from "../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/RegisterPages.jsx
    ---------------------------------------------------------------------
@@ -67,10 +68,6 @@ const findCountry = (id) => COUNTRIES.find((country) => country.id === id) || CO
 // The number must start right after the country code, WITHOUT the first 0
 // (e.g. Saudi Arabia: +966 then 5X XXX XXXX, not 05X XXX XXXX).
 const cleanLocalPhone = (typed) => String(typed || "").replace(/[\s\-()]/g, "");
-
-// The full phone number with the country code, e.g. "+966512345678".
-// This is the value that should be saved in the database.
-const fullPhoneNumber = (values) => findCountry(values.phoneCountry).code + cleanLocalPhone(values.phone);
 
 // Answer choices for the medical profile drop-down lists.
 const SEX_OPTIONS = ["Female", "Male"];
@@ -327,14 +324,14 @@ function RegisterChoicePage() {
 // role = "patient" or "staff" (comes from the page address).
 function RegisterPage({ role }) {
   const [account, setAccount] = useState({ ...EMPTY_ACCOUNT, role }); // everything the visitor entered
-  const [problems, setProblems] = useState({}); // problem message per field
+  const [problems, setProblems] = useNotificationState({}); // problem message per field
   const [showAlert, setShowAlert] = useState(false); // show the pop-up?
   const [showPassword, setShowPassword] = useState(false); // show password text?
   const [step, setStep] = useState(1); // which part of the form (1 or 2)
   const [direction, setDirection] = useState("forward"); // slide direction for the animation
   const [registered, setRegistered] = useState(false); // form accepted?
   const [saving, setSaving] = useState(false); // waiting for the server?
-  const [serverError, setServerError] = useState(""); // message from the server
+  const [serverError, setServerError] = useNotificationState(""); // message from the server
   const formTopRef = useRef(null);
 
   const isPatient = account.role === "patient";
@@ -1049,4 +1046,4 @@ function RoleIcon({ name }) {
   );
 }
 
-export { RegisterChoicePage, RegisterPage, canGiveConsultations, fullPhoneNumber };
+export { RegisterChoicePage, RegisterPage };

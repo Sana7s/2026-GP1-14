@@ -1,3 +1,4 @@
+import { showPopup, useNotificationState } from "./PopupNotifications.jsx";
 /* BurnCare — components/VerifyCodeStep.jsx
    Admin sign-in, step 2: shown inside the Log in card after an admin's
    email and password are accepted. (Based on adminLogin.jsx.) */
@@ -13,8 +14,7 @@ const EMPTY_CODE = Array(CODE_LENGTH).fill("");
 function VerifyCodeStep({ emailHint, onVerified, onBack }) {
   const [code, setCode] = useState(EMPTY_CODE);
   const [attempt, setAttempt] = useState(0); // goes up after a wrong code
-  const [problem, setProblem] = useState("");
-  const [notice, setNotice] = useState("");
+  const [problem, setProblem] = useNotificationState("");
   const [checking, setChecking] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_WAIT);
 
@@ -48,7 +48,7 @@ function VerifyCodeStep({ emailHint, onVerified, onBack }) {
     setProblem("");
     try {
       await resendCode();
-      setNotice("A new code was sent. The old code no longer works.");
+      showPopup("A new code was sent. The old code no longer works.");
       setSecondsLeft(RESEND_WAIT);
       setCode(EMPTY_CODE);
       setAttempt((n) => n + 1);
@@ -98,7 +98,6 @@ function VerifyCodeStep({ emailHint, onVerified, onBack }) {
         onChange={(next) => {
           setCode(next);
           setProblem("");
-          setNotice("");
           if (next.every(Boolean)) check(next); // all filled → check straight away
         }}
       />
@@ -108,11 +107,7 @@ function VerifyCodeStep({ emailHint, onVerified, onBack }) {
           {problem}
         </p>
       )}
-      {notice && !problem && (
-        <p className="verify-notice" role="status">
-          {notice}
-        </p>
-      )}
+
 
       <button type="submit" className="button button-primary login-submit" disabled={checking}>
         {checking ? "Checking…" : "Verify and continue"}

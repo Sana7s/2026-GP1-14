@@ -1,3 +1,4 @@
+import { showPopup, useNotificationState } from "../../components/PopupNotifications.jsx";
 /* =====================================================================
    BurnCare — pages/staff/StaffConsultationsPage.jsx
    ---------------------------------------------------------------------
@@ -129,7 +130,7 @@ function ConsultationItem({ consultation, open, onToggle, onChanged, account }) 
 // One consultation: the question, the messages, and a reply box.
 function Conversation({ id, reportCode, onChanged, account }) {
   const [thread, setThread] = useState(null);
-  const [problem, setProblem] = useState("");
+  const [problem, setProblem] = useNotificationState("");
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -138,7 +139,7 @@ function Conversation({ id, reportCode, onChanged, account }) {
       api(`/api/consultations/${id}`)
         .then(setThread)
         .catch((error) => setProblem(error.message)),
-    [id],
+    [id, setProblem],
   );
 
   useEffect(() => {
@@ -153,6 +154,7 @@ function Conversation({ id, reportCode, onChanged, account }) {
       await api(`/api/consultations/${id}/messages`, { method: "POST", body: { text: reply.trim() } });
       setReply("");
       setProblem("");
+      showPopup("Message sent successfully.");
       await load();
       onChanged();
     } catch (error) {
@@ -165,6 +167,7 @@ function Conversation({ id, reportCode, onChanged, account }) {
   const close = async () => {
     try {
       await api(`/api/consultations/${id}/close`, { method: "POST" });
+      showPopup("Consultation closed successfully.");
       await load();
       onChanged();
     } catch (error) {
