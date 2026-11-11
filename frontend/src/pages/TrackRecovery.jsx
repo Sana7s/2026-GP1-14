@@ -177,12 +177,13 @@ function TrackRecovery() {
                 </label>
                 <div className="text-input">
                   <input
-                    id="rec-date"
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                  />
+  id="rec-date"
+  type="date"
+  value={date}
+  max={new Date().toLocaleDateString("en-CA")}
+  onChange={(e) => setDate(e.target.value)}
+  required
+/>
                 </div>
               </div>
 
