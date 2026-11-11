@@ -58,9 +58,11 @@ def current_user():
     return query_one(
         """
         SELECT u.account_id, u.full_name, u.email, u.role, u.is_active,
-               s.staff_role, s.staff_role_other, s.scfhs_number, s.status AS staff_status
+               s.staff_role, s.staff_role_other, s.scfhs_number, s.status AS staff_status,
+               ap.admin_level
         FROM accounts u
         LEFT JOIN staff_profiles s ON s.account_id = u.account_id
+        LEFT JOIN admin_profiles ap ON ap.account_id = u.account_id
         WHERE u.account_id = %s
         """,
         (account_id,),
@@ -106,6 +108,9 @@ def public_user(user):
         "email": user["email"],
         "role": user["role"],
     }
+    if user["role"] == "admin":
+        # "super" admins can also add and deactivate other admins.
+        data["adminLevel"] = user["admin_level"] or "admin"
     if user["role"] == "staff":
         data["staffRole"] = v.STAFF_ROLE_LABELS.get(user["staff_role"])
         data["staffStatus"] = user["staff_status"]
@@ -594,4 +599,4 @@ def change_password(user):
         )
     except Exception:  # noqa: BLE001 — the change itself already worked
         pass
-    return jsonify({"ok": True})
+    return jsonify({"ok": True})

@@ -56,13 +56,13 @@ function StaffProfilePage() {
           ))}
         </dl>
         <p className="patient-note">
-          These details come from your BurnCare account. To change them, contact the BurnCare admin.
+          These details come from your BurnCare account. To change them, contact a BurnCare admin.
         </p>
       </section>
 
       {!approved && (
         <section className="patient-card staff-waiting" role="status">
-          <h2>{account.staffStatus === "changes_requested" ? "The admin asked for changes" : "Waiting for admin approval"}</h2>
+          <h2>{account.staffStatus === "changes_requested" ? "A BurnCare admin asked for changes" : "Waiting for admin approval"}</h2>
           <p>
             {account.staffStatus === "changes_requested" && account.adminNote
               ? account.adminNote
@@ -81,4 +81,4 @@ function StaffProfilePage() {
   );
 }
 
-export default StaffProfilePage;
+export default StaffProfilePage;

@@ -1,52 +1,77 @@
-# BurnCare — integrated React + Flask project
+# BurnCare — React + Flask + PostgreSQL
 
-This version connects the main BurnCare PostgreSQL-backed site and the **separate, local demonstration-only healthcare staff SQLite portal** to one backend server. It does NOT migrate or merge patient data between the databases. No real patient information should be entered into the demo staff portal.
+BurnCare recommends where a burn should be treated (burn unit, treat locally, or no treatment needed at home) using the BBA/NNBC referral criteria, the burn size (TBSA) and the AI burn depth. One Flask backend and one PostgreSQL database serve every page: guest, patient, healthcare staff and admin.
 
-## 1. PostgreSQL (first-time setup only)
+## 1. PostgreSQL
 
-Install/start PostgreSQL and create an empty database called `burncare`. **Only for a brand-new empty database**, run `backend/database/schema.sql` using pgAdmin Query Tool; WARNING: the schema file begins with DROP TABLE statements and WILL DELETE existing BurnCare data if run again. Never rerun it against an existing database without a backup. For an existing database, leave its tables untouched.
+**New, empty database (first time only):** create a database called `burncare`, then run `backend/database/schema (1).sql` in the pgAdmin Query Tool.
 
-## 2. Backend terminal
+> WARNING: `schema (1).sql` starts with DROP TABLE. Running it again DELETES all BurnCare data. Never run it on a database you want to keep.
 
-On macOS, open Terminal in `2026-GP1-14/backend` and run:
+**Existing database:** do not run the schema. Run only the migration files you have not run yet (each keeps your data):
+
+| File | What it adds |
+|---|---|
+| `backend/database/staff_migration.sql` | staff fields |
+| `backend/database/admin_levels_migration.sql` | admin levels (super admin / admin) |
+
+## 2. Backend (first terminal, in `backend`)
 
 ```sh
-python3 -m venv .venv
-source .venv/bin/activate
+python -m venv .venv
+.venv\Scripts\activate          # Windows   (macOS: source .venv/bin/activate)
 python -m pip install -r requirements.txt
-cp .env.example .env
+copy .env.example .env          # Windows   (macOS: cp .env.example .env)
 ```
 
-Edit `backend/.env` and replace `YOUR_PASSWORD` with your actual local PostgreSQL password. Set a unique, long SECRET_KEY. Do not commit or upload `.env`. Then run:
+Open `backend/.env`, put your PostgreSQL password in `DATABASE_URL` and a long random `SECRET_KEY`. Never commit `.env`.
+
+Create the first admin (a **super admin**) once:
+
+```sh
+python create_admin.py
+```
+
+Optional demo data (all passwords `Demo1234`, admin: `admin@burncare.demo`):
+
+```sh
+python seed_demo.py
+```
+
+Start the server:
 
 ```sh
 python app.py
 ```
 
-Main health endpoint: http://localhost:5000/api/health (requires PostgreSQL). Staff demo health endpoint: http://localhost:5000/staff/api/health (SQLite; starts with the backend). SQLite staff data is saved under `backend/healthcare_staff/instance/burncare.db` automatically.
+Check: http://localhost:5000/api/health
 
-## 3. Frontend terminal
-
-Open a **second** terminal in `2026-GP1-14/frontend`:
+## 3. Frontend (second terminal, in `frontend`)
 
 ```sh
 npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite, usually http://localhost:5173. Main pages: `/`, `/about`, `/guest`, `/tbsa`, `/register`, `/login`, `/patient`, `/patient/assessment`, `/patient/reports`, `/patient/recovery`, `/patient/profile`, `/admin`. Staff demo: `/staff`.
+Open http://localhost:5173. All `/api/...` calls go to Flask on port 5000.
 
-All main `/api/...` calls proxy to port 5000. Staff `/staff/api/...` calls are handled by the separate mounted SQLite app on the SAME port. Do not start `backend/healthcare_staff/app.py` as a second standalone server.
+Main pages: `/`, `/about`, `/guest`, `/tbsa`, `/register`, `/login`, `/patient`, `/staff`, `/admin`.
+
+## Admins
+
+- **Super admin**: reviews staff requests and adds, deactivates and reactivates admins (Admin page, "Admins" tab).
+- **Admin**: reviews staff requests only.
+- A new admin receives an invitation email and sets their own password with "Forgot password" on the Log in page.
+- Every admin login needs the password and a 6-digit code sent by email.
+- All admins share one request list; the first decision wins and the activity log shows who decided.
+
+## Emails
+
+While `MAIL_SERVER` in `.env` is empty (development), no email is sent: login codes, reset codes and admin invitations are printed in the Flask terminal. To send real emails, fill in the Gmail settings shown in `.env.example` (use a Gmail App password).
 
 ## Troubleshooting
 
-- Page not loading: confirm both terminals are running; `npm run dev` must execute in `frontend`, and `python app.py` in `backend`.
-- Main site health reports a database error: check PostgreSQL service, database name, password in `.env`, and pre-existing schema.
-- Staff demo works but patient/admin doesn't: the staff demo uses SQLite, whereas the patient and admin APIs need PostgreSQL.
-- Can't import module: activate `.venv` then reinstall `backend/requirements.txt`. Frontend modules require `npm install`.
-- On a fresh staff portal, create/select a **demo** staff profile from `/staff` before editing or saving reports. This is *not* production authentication.
-- Never include private `.env`, database instances, or real patient data in a public repository.
-
-## Known limits
-
-This project was statically checked for Python syntax and missing relative frontend imports in the supplied environment. An end-to-end run against your own PostgreSQL server and a full Vite production build have not been verified here. The two databases are intentionally separate. Existing placeholder/coming-soon features remain placeholders, not implemented clinical functionality.
+- Page not loading: both terminals must be running (`python app.py` in `backend`, `npm run dev` in `frontend`).
+- Database error: check PostgreSQL is running and the password and database name in `.env`.
+- "Can't import module": activate `.venv`, then run `python -m pip install -r requirements.txt` again; for the frontend run `npm install`.
+- Never push `.env`, `.venv`, `node_modules`, `uploads` or real patient data to GitHub.

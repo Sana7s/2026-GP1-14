@@ -3,3 +3,6 @@ uploads/
 __pycache__/
 venv/
 .DS_Store
+.venv/
+instance/
+healthcare_staff/

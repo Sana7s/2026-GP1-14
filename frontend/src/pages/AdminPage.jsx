@@ -8,6 +8,8 @@ import { showPopup } from "../components/PopupNotifications.jsx";
         or rejects them (staff cannot use BurnCare until approved).
      2. Manages approved staff (search, suspend or reactivate access).
      3. Sees a log of every decision (who did what, and when).
+     4. (Super admins only) Manages the admins: adds a new admin and
+        deactivates or reactivates admins.
    For each request the admin can Approve, Request changes (to the
    SCFHS number, name or role they entered), or Reject with a reason.
 
@@ -17,6 +19,15 @@ import { showPopup } from "../components/PopupNotifications.jsx";
      POST /api/admin/requests/<id>/reject           reject with a reason
      POST /api/admin/requests/<id>/request-changes  ask for changes
      POST /api/admin/staff/<id>/suspend | reactivate
+     GET  /api/admin/admins                         all admins (super admin)
+     POST /api/admin/admins                         add (invite) an admin
+     POST /api/admin/admins/<id>/deactivate | reactivate
+
+   Two admin levels:
+     Super admin  reviews staff AND adds / deactivates admins
+     Admin        reviews staff only (no "Admins" tab)
+   All admins share the same requests. If another admin decided a
+   request first, Flask says who, and the page loads the new list.
    Flask only answers if the logged-in account is an admin; anyone else
    sees an "Admins only" message with a link to the Login page.
    ===================================================================== */
@@ -112,6 +123,8 @@ function AdminPage() {
   const [filter, setFilter] = useState("All"); // role filter for the requests
   const [selectedId, setSelectedId] = useState(null); // request being reviewed
   const [checks, setChecks] = useState({}); // ticked checks per request
+  const [me, setMe] = useState({ id: null, level: "admin" }); // the logged-in admin and their level
+  const [admins, setAdmins] = useState([]); // all admins (super admins only)
 
   // Sort the requests: burn specialists first (they unlock consultations),
   // then the ones that have waited the longest.
@@ -169,6 +182,12 @@ function AdminPage() {
       setRequests(data.requests);
       setStaff(data.staff);
       setLog(data.log);
+      setMe(data.me || { id: null, level: "admin" });
+      // Only a super admin gets the list of admins.
+      if (data.me?.level === "super") {
+        const list = await api("/api/admin/admins");
+        setAdmins(list.admins);
+      }
       setAccessProblem("");
     } catch (problem) {
       setAccessProblem(problem.message);
@@ -192,6 +211,11 @@ function AdminPage() {
       showToast(message);
     } catch (problem) {
       showPopup(problem.message, "error");
+      // 409 = another admin already decided this request: show the new list.
+      if (problem.status === 409) {
+        setSelectedId(null);
+        await reload();
+      }
     }
   };
 
@@ -220,6 +244,27 @@ function AdminPage() {
     const action = person.status === "Active" ? "suspend" : "reactivate";
     const word = action === "suspend" ? "suspended" : "active again";
     return decide(`/api/admin/staff/${person.id}/${action}`, null, `${person.name} is now ${word}.`);
+  };
+
+  // ADMINS (super admin only): add a new admin. Returns true if it worked,
+  // so the form can empty itself.
+  const addAdmin = async (form) => {
+    try {
+      await api("/api/admin/admins", { method: "POST", body: form });
+      await reload();
+      showToast(`${form.fullName} was added. An invitation was sent to ${form.email}.`);
+      return true;
+    } catch (problem) {
+      showPopup(problem.message, "error");
+      return false;
+    }
+  };
+
+  // ADMINS: deactivate (cannot log in) or reactivate an admin.
+  const toggleAdmin = (person) => {
+    const action = person.status === "Active" ? "deactivate" : "reactivate";
+    const word = action === "deactivate" ? "deactivated and can no longer log in" : "active again";
+    return decide(`/api/admin/admins/${person.id}/${action}`, null, `${person.name} is now ${word}.`);
   };
 
   // ---------- Loading, or not allowed ----------
@@ -292,6 +337,11 @@ function AdminPage() {
           <TabButton id="log" current={tab} onSelect={setTab}>
             Activity log
           </TabButton>
+          {me.level === "super" && (
+            <TabButton id="admins" current={tab} onSelect={setTab}>
+              Admins <span className="admin-count">{admins.filter((a) => a.status === "Active").length}</span>
+            </TabButton>
+          )}
         </div>
 
         {/* ---------- TAB 1: REQUESTS ---------- */}
@@ -366,6 +416,11 @@ function AdminPage() {
               </li>
             ))}
           </ol>
+        )}
+
+        {/* ---------- TAB 4: ADMINS (super admin only) ---------- */}
+        {tab === "admins" && me.level === "super" && (
+          <AdminsTab admins={admins} onAdd={addAdmin} onToggle={toggleAdmin} />
         )}
       </div>
 
@@ -722,4 +777,131 @@ function StaffTable({ staff, onToggle }) {
   );
 }
 
-export default AdminPage;
+// The Admins tab (super admins only): the list of admins and the form
+// to add a new one. A new admin gets an email and sets their own password
+// with "Forgot password", so no one else ever knows it.
+const EMPTY_ADMIN = { fullName: "", email: "", phone: "", jobTitle: "", level: "admin" };
+
+function AdminsTab({ admins, onAdd, onToggle }) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(EMPTY_ADMIN);
+  const [sending, setSending] = useState(false);
+  const set = (key) => (e) => setForm((current) => ({ ...current, [key]: e.target.value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSending(true);
+    const ok = await onAdd({ ...form, phone: form.phone.replace(/\s/g, "") });
+    setSending(false);
+    if (ok) {
+      setForm(EMPTY_ADMIN);
+      setShowForm(false);
+    }
+  };
+
+  return (
+    <div className="admin-staff">
+      <div className="admin-admins-top">
+        <p className="admin-hint">
+          Super admins review staff and manage admins. Admins review staff only. BurnCare always keeps at least one
+          active super admin, and you cannot deactivate yourself.
+        </p>
+        {!showForm && (
+          <button type="button" className="button button-primary" onClick={() => setShowForm(true)}>
+            Add admin
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <form className="admin-add" onSubmit={submit}>
+          <h3>Add an admin</h3>
+          <div className="admin-add-grid">
+            <label>
+              Full name
+              <input className="admin-input" value={form.fullName} onChange={set("fullName")} maxLength={100} required />
+            </label>
+            <label>
+              Email
+              <input className="admin-input" type="email" value={form.email} onChange={set("email")} maxLength={150} required />
+            </label>
+            <label>
+              Phone number
+              <span className="admin-phone">
+                <span>+966</span>
+                <input className="admin-input" inputMode="numeric" placeholder="5XXXXXXXX" value={form.phone} onChange={set("phone")} maxLength={12} required />
+              </span>
+            </label>
+            <label>
+              Job title
+              <input className="admin-input" value={form.jobTitle} onChange={set("jobTitle")} maxLength={60} placeholder="e.g. Credentialing officer" required />
+            </label>
+          </div>
+          <p className="admin-add-label">Level</p>
+          <div className="admin-filters">
+            {[["admin", "Admin — reviews staff"], ["super", "Super admin — also manages admins"]].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`admin-chip${form.level === value ? " is-active" : ""}`}
+                onClick={() => setForm((current) => ({ ...current, level: value }))}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="admin-hint">
+            They will get an email asking them to set their password with "Forgot password" on the Log in page.
+          </p>
+          <div className="admin-actions">
+            <button type="submit" className="button button-primary" disabled={sending}>
+              {sending ? "Sending…" : "Send invitation"}
+            </button>
+            <button type="button" className="button button-outline" onClick={() => { setShowForm(false); setForm(EMPTY_ADMIN); }}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="admin-table">
+        <div className="admin-row admin-row-head">
+          <span>Name</span>
+          <span>Job title</span>
+          <span>Level</span>
+          <span>Status</span>
+          <span />
+        </div>
+        {admins.map((person) => (
+          <div key={person.id} className="admin-row">
+            <span className="admin-row-name">
+              <span className="admin-avatar" aria-hidden="true">{initials(person.name)}</span>
+              <span>
+                {person.name}
+                {person.isMe && <em className="admin-you">You</em>}
+                <small>{person.email}</small>
+                <small>Added {person.added}{person.addedBy ? ` by ${person.addedBy}` : ""}</small>
+              </span>
+            </span>
+            <span>{person.jobTitle || "—"}</span>
+            <span>
+              <span className={`admin-level is-${person.level}`}>{person.level === "super" ? "Super admin" : "Admin"}</span>
+            </span>
+            <span>
+              <span className={`admin-status is-${person.status === "Active" ? "active" : "suspended"}`}>{person.status}</span>
+            </span>
+            <span className="admin-row-action">
+              {!person.isMe && (
+                <button type="button" className="admin-text-button" onClick={() => onToggle(person)}>
+                  {person.status === "Active" ? "Deactivate" : "Reactivate"}
+                </button>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default AdminPage;

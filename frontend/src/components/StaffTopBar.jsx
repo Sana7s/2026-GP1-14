@@ -86,7 +86,7 @@ function StaffTopBar() {
                   {link.label}
                 </NavLink>
               ) : (
-                <span key={link.to} className="patient-nav-link is-disabled" title="Opens after the admin approves your account">
+                <span key={link.to} className="patient-nav-link is-disabled" title="Opens after a BurnCare admin approves your account">
                   {link.label}
                 </span>
               ),
@@ -252,4 +252,4 @@ function LogoutIcon() {
   );
 }
 
-export default StaffTopBar;
+export default StaffTopBar;

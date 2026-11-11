@@ -66,7 +66,9 @@ def main():
         admin_id, new = add_account("BurnCare Admin", "admin@burncare.demo", "+966500000001", "admin")
         if new:
             # Admins also need a row in admin_profiles (the admin subtype).
-            execute("INSERT INTO admin_profiles (account_id, job_title) VALUES (%s, 'System administrator')",
+            # The demo admin is a super admin, so the "Admins" tab can be tested.
+            execute("INSERT INTO admin_profiles (account_id, job_title, admin_level) "
+                    "VALUES (%s, 'System administrator', 'super')",
                     (admin_id,))
 
         patient_id, new = add_account("Sara Ahmed", "patient@burncare.demo", "+966500000002", "patient")

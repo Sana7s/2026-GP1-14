@@ -1,7 +1,8 @@
 """
 BurnCare — mailer.py
 -----------------------------------------------------------------------
-Sends emails: the admin login code and the password reset code.
+Sends emails: the admin login code, the password reset code and the
+admin invitation.
 
 Each email has two versions in one message:
   - an HTML version (BurnCare colours, the code in big boxes)
@@ -132,6 +133,46 @@ def code_email(heading, intro, code, minutes, footer_note):
           <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:{MUTED};text-align:center;">
             Never share it with anyone. BurnCare will never ask you for it.
           </p>
+        </td></tr>
+        <tr><td style="padding:16px 28px 24px;border-top:1px solid {LINE};">
+          <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:{MUTED};">{escape(footer_note)}</p>
+          <p style="margin:0;font-size:12px;line-height:1.6;color:{MUTED};">
+            This is an automatic email from BurnCare. Please don't reply; replies to this address are not read.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+    return text, html
+
+def notice_email(heading, paragraphs, footer_note):
+    """Build both versions of a simple message email (no code), e.g. the
+    invitation sent to a new admin. paragraphs = a list of short texts.
+    Returns (text, html)."""
+    text = (
+        f"{heading}\n\n"
+        + "\n\n".join(paragraphs)
+        + f"\n\n{footer_note}\n\n"
+        "— BurnCare\n"
+        "This is an automatic email. Replies to it are not read."
+    )
+    body = "".join(
+        f'<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:{MUTED};">{escape(p)}</p>'
+        for p in paragraphs
+    )
+    html = f"""<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{escape(heading)}</title></head>
+<body style="margin:0;padding:0;background:{BLUSH};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{BLUSH};padding:32px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#FFFFFF;border-radius:16px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:{INK};">
+        <tr><td style="padding:0;line-height:0;">{banner_html()}</td></tr>
+        <tr><td style="padding:28px 28px 8px;">
+          <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:{INK};">{escape(heading)}</h1>
+          {body}
         </td></tr>
         <tr><td style="padding:16px 28px 24px;border-top:1px solid {LINE};">
           <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:{MUTED};">{escape(footer_note)}</p>

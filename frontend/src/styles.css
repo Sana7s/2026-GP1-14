@@ -7890,3 +7890,98 @@ button.account-menu-item {
     animation: none;
   }
 }
+
+/* ---------- Admins tab (super admins only) ---------- */
+.admin-admins-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.admin-admins-top .admin-hint {
+  max-width: 620px;
+  margin: 0;
+}
+
+.admin-add {
+  margin-bottom: 18px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+  animation: open-down 320ms var(--ease-out) both;
+}
+
+.admin-add h3 {
+  margin: 0 0 14px;
+}
+
+.admin-add-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 16px;
+}
+
+.admin-add label,
+.admin-add-label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
+.admin-phone {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-phone > span {
+  display: grid;
+  place-items: center;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--blush-soft);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.admin-you {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--blush-soft);
+  color: var(--coral);
+  font-size: var(--text-label);
+  font-style: normal;
+}
+
+.admin-level {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f2eff0;
+  color: var(--ink-soft);
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+
+.admin-level.is-super {
+  background: #fdecee;
+  color: #b8323a;
+}
+
+@media (max-width: 680px) {
+  .admin-admins-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-add-grid {
+    grid-template-columns: 1fr;
+  }
+}
