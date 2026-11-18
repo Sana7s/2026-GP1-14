@@ -12,7 +12,7 @@
 --     accounts               everyone with an account (patient, staff, admin)
 --                            Guests have NO account → their assessments have created_by = NULL
 --     patient_profiles       medical profile of a patient         (subtype of accounts)
---     admin_profiles         job title and department of an admin (subtype of accounts)
+--     admin_profiles         job title, department and level of an admin (subtype of accounts)
 --     staff_profiles         role, SCFHS number, approval status  (subtype of accounts)
 --     verification_codes     one-time codes: admin login, email verification, password reset
 --   Admin page
@@ -93,6 +93,9 @@ CREATE TABLE admin_profiles (
   account_id   INTEGER       PRIMARY KEY REFERENCES accounts (account_id) ON DELETE CASCADE,
   job_title    VARCHAR(60)   NOT NULL,
   department   VARCHAR(120),
+  -- 'super' = can also add and deactivate other admins; 'admin' = reviews staff only.
+  -- The first admin (made with create_admin.py) is a super admin.
+  admin_level  VARCHAR(10)   NOT NULL DEFAULT 'admin' CHECK (admin_level IN ('super', 'admin')),
   created_by   INTEGER       REFERENCES admin_profiles (account_id) ON DELETE SET NULL
 );
 

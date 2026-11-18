@@ -92,8 +92,8 @@ function WaitingWelcome({ account }) {
       </section>
       {account.staffStatus === "changes_requested" && (
         <section className="patient-card staff-waiting" role="status">
-          <h2>The admin asked for changes</h2>
-          <p>{account.adminNote || "Please check your registration details with the BurnCare admin."}</p>
+          <h2>A BurnCare admin asked for changes</h2>
+          <p>{account.adminNote || "Please check your registration details with the BurnCare admins."}</p>
         </section>
       )}
     </>
@@ -217,4 +217,4 @@ function Stat({ number, label, note, highlight }) {
   );
 }
 
-export default StaffHomePage;
+export default StaffHomePage;

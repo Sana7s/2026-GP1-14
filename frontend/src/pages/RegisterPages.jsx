@@ -485,7 +485,7 @@ function RegisterPage({ role }) {
             </p>
           ) : (
             <p className="register-done-text">
-              Your request has been sent to the BurnCare admin. They will check your
+              Your request has been sent to the BurnCare admins. They will check your
               details and SCFHS number, and you can use BurnCare once your account is
               approved. You can log in at any time to see the status of your request.
             </p>
@@ -1046,4 +1046,4 @@ function RoleIcon({ name }) {
   );
 }
 
-export { RegisterChoicePage, RegisterPage };
+export { RegisterChoicePage, RegisterPage };
