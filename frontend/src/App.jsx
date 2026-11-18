@@ -42,7 +42,7 @@ import StaffConsultationsPage from "./pages/staff/StaffConsultationsPage.jsx";
 import StaffProfilePage from "./pages/staff/StaffProfilePage.jsx";
 import AdminTopBar from "./components/AdminTopBar.jsx";
 import PopupNotifications from "./components/PopupNotifications.jsx";
-
+import ChatBot from "./components/ChatBot.jsx";
 /* =====================================================================
    APP — the starting point of the website
    ===================================================================== */
@@ -80,7 +80,7 @@ function App() {
     <Routes>
       {/* ===== Patient pages: show the top bar, then the page itself ===== */}
       <Route path="/patient" element={<PatientTopBar />}>
-        <Route index element={<PatientHomePage />} />
+        <Route index element={<><PatientHomePage /><ChatBot /></>} />
         <Route path="assessment" element={<PatientEntry />} />
         <Route path="reports" element={<PatientHistory />} />
         <Route path="reports/:reportId" element={<ReportPage />} />

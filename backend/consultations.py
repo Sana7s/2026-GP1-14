@@ -2,15 +2,15 @@
 BurnCare — consultations.py
 -----------------------------------------------------------------------
 Approved staff ask a burn specialist about a case; burn specialists
-answer. (The Consultations page itself will be built later; these
-addresses are ready for it.)
+answer. Supports multi-specialist replies and physician-selected routing.
 
 API addresses (all start with /api/consultations):
-  POST /                      staff: ask about one of the assessments
-  GET  /                      staff: my questions | specialist: open + mine
-  GET  /<id>                  one consultation with its messages
-  POST /<id>/messages         add a message (asker or the specialist)
-  POST /<id>/close            close the consultation
+  GET  /specialists         get list of available burn specialists
+  POST /                    staff: ask a specialist about an assessment
+  GET  /                    staff: my questions | specialist: open + mine
+  GET  /<id>                one consultation with its messages
+  POST /<id>/messages       add a message (asker or any specialist)
+  POST /<id>/close          close the consultation
 """
 
 from flask import Blueprint, jsonify, request
@@ -26,12 +26,27 @@ def is_specialist(user):
 
 
 def can_see(user, row):
-    """The asker, the specialist on the case, or any specialist while it is open."""
+    """The asker, the targeted specialist, or any specialist while it is open."""
     return (
         row["requested_by"] == user["account_id"]
         or row["specialist_id"] == user["account_id"]
-        or (is_specialist(user) and row["status"] == "open" and row["specialist_id"] is None)
+        or (is_specialist(user) and row["status"] == "open" and (row["specialist_id"] is None or row["specialist_id"] == user["account_id"]))
     )
+
+
+@bp.get("/specialists")
+@role_required("staff")
+def list_specialists(user):
+    """Return a list of approved burn specialists so staff can choose one."""
+    rows = query_all(
+        """
+        SELECT account_id, full_name, email
+        FROM accounts
+        WHERE role = 'staff' AND staff_role = 'burn_specialist' AND is_approved = TRUE
+        ORDER BY full_name
+        """
+    )
+    return jsonify({"specialists": [{"id": r["account_id"], "fullName": r["full_name"], "email": r["email"]} for r in rows]})
 
 
 @bp.post("")
@@ -40,18 +55,21 @@ def create(user):
     data = request.get_json(silent=True) or {}
     question = str(data.get("question") or "").strip()
     code = str(data.get("reportCode") or "").strip().upper()
+    specialist_id = data.get("specialistId")
+    
     if not question:
         return error("Please write your question.", field="question")
+    
     assessment = query_one("SELECT assessment_id FROM assessments WHERE report_code = %s", (code,))
     if not assessment:
         return error("Report not found.", 404, field="reportCode")
 
     row = query_one(
         """
-        INSERT INTO consultations (assessment_id, requested_by, question)
-        VALUES (%s, %s, %s) RETURNING consultation_id
+        INSERT INTO consultations (assessment_id, requested_by, specialist_id, question)
+        VALUES (%s, %s, %s, %s) RETURNING consultation_id
         """,
-        (assessment["assessment_id"], user["account_id"], question),
+        (assessment["assessment_id"], user["account_id"], specialist_id if specialist_id else None, question),
     )
     commit()
     return jsonify({"id": row["consultation_id"]}), 201
@@ -70,10 +88,10 @@ def list_consultations(user):
         JOIN accounts u ON u.account_id = c.requested_by
         WHERE c.requested_by = %s
            OR c.specialist_id = %s
-           OR (%s AND c.status = 'open' AND c.specialist_id IS NULL)
+           OR (%s AND c.status = 'open' AND (c.specialist_id IS NULL OR c.specialist_id = %s))
         ORDER BY c.created_at DESC
         """,
-        (user["account_id"], user["account_id"], is_specialist(user)),
+        (user["account_id"], user["account_id"], is_specialist(user), user["account_id"]),
     )
     return jsonify({"consultations": [{
         "id": r["consultation_id"],
@@ -121,18 +139,19 @@ def add_message(user, consultation_id):
     if not text:
         return error("Please write a message.", field="text")
 
-    # The first specialist to reply takes the case and it becomes "answered".
+    # Multi-specialist update: Change status to 'answered' when a specialist replies, 
+    # but do NOT lock it to a single specialist so others can also reply.
     if is_specialist(user) and row["requested_by"] != user["account_id"]:
         execute(
             """
             UPDATE consultations
-            SET specialist_id = COALESCE(specialist_id, %s), status = 'answered',
+            SET status = 'answered',
                 answered_at = COALESCE(answered_at, NOW())
             WHERE consultation_id = %s
             """,
-            (user["account_id"], consultation_id),
+            (consultation_id,),
         )
-    # Messages are numbered 1, 2, 3 ... inside each consultation (weak entity).
+
     execute(
         """
         INSERT INTO consultation_messages (consultation_id, message_no, sender_id, message_text)
@@ -149,7 +168,7 @@ def add_message(user, consultation_id):
 @role_required("staff")
 def close(user, consultation_id):
     row = query_one("SELECT * FROM consultations WHERE consultation_id = %s", (consultation_id,))
-    if not row or user["account_id"] not in (row["requested_by"], row["specialist_id"]):
+    if not row or (user["account_id"] != row["requested_by"] and not is_specialist(user)):
         return error("Consultation not found.", 404)
     execute("UPDATE consultations SET status = 'closed' WHERE consultation_id = %s", (consultation_id,))
     commit()

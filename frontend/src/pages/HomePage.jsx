@@ -9,7 +9,7 @@ import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { Reveal, useScrollProgress, heroProgress, statementProgress } from "../components/animations.jsx";
 import { Chevron } from "../components/Chevron.jsx";
-
+import ChatBot from "../components/ChatBot.jsx";
 /* =====================================================================
    HOME PAGE TEXT — change the wording here
    ===================================================================== */
@@ -250,10 +250,10 @@ function HomePage() {
           </Link>
         </Reveal>
       </section>
+            <ChatBot />
     </div>
   );
 }
-
 // A large sentence where each word brightens as the visitor scrolls.
 // Each word gets its position number ("--i"); the CSS compares it with the
 // scroll progress ("--p") to decide how bright the word should be.

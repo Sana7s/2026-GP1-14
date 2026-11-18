@@ -7890,3 +7890,212 @@ button.account-menu-item {
     animation: none;
   }
 }
+/* =====================================================================
+   22. HOME PAGE CHATBOT  (components/ChatBot.jsx)
+   Round button at the bottom-left and the chat window above it.
+   All class names start with "cb-" so they don't clash with the
+   patient chat styles (.chat-form, .chat-chip ...).
+   ===================================================================== */
+
+.cb-launcher {
+  position: fixed;
+  z-index: 40;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  left: 20px;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--coral);
+  color: var(--white);
+  box-shadow: 0 12px 28px rgba(217, 67, 77, 0.35);
+  cursor: pointer;
+  transition: transform 180ms ease, background 180ms ease;
+}
+
+.cb-launcher:hover {
+  background: var(--rose);
+  transform: translateY(-2px);
+}
+
+.cb-launcher:active {
+  transform: scale(0.96);
+}
+
+/* ---------- Chat window ---------- */
+.cb-panel {
+  position: fixed;
+  z-index: 40;
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  left: 20px;
+  width: min(360px, calc(100vw - 40px));
+  /* never taller than the space under the top bar */
+  height: min(500px, calc(100vh - var(--nav-height) - 108px));
+  height: min(500px, calc(100dvh - var(--nav-height) - 108px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--card-radius);
+  background: var(--white);
+  box-shadow: var(--lift-shadow);
+  transform-origin: bottom left;
+  animation: rise-in 300ms var(--ease-out) both;
+}
+
+.cb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(160deg, var(--coral) 0%, var(--rose) 100%);
+  color: var(--white);
+}
+
+.cb-header h2 {
+  margin: 0;
+  font-size: var(--text-sub);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.cb-header p {
+  margin: 2px 0 0;
+  font-size: var(--text-label);
+  opacity: 0.85;
+}
+
+.cb-close {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ---------- Messages ---------- */
+.cb-messages {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 16px;
+  overflow-y: auto;
+  background: var(--blush-soft);
+}
+
+.cb-msg {
+  max-width: 85%;
+  margin: 0;
+  padding: 10px 14px;
+  font-size: var(--text-body);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.cb-bot {
+  justify-self: start;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.cb-user {
+  justify-self: end;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--coral);
+  color: var(--white);
+}
+
+.cb-typing {
+  color: var(--muted);
+}
+
+/* ---------- Quick questions ---------- */
+.cb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 12px;
+  background: var(--blush-soft);
+}
+
+.cb-chip {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 180ms ease, color 180ms ease;
+}
+
+.cb-chip:hover {
+  border-color: var(--pink);
+  color: var(--rose);
+}
+
+/* ---------- Message box ---------- */
+.cb-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  background: var(--white);
+}
+
+.cb-form input {
+  min-width: 0;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-body);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.cb-form input::placeholder {
+  color: #b3abad;
+}
+
+.cb-form input:focus {
+  border-color: var(--coral);
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(230, 83, 89, 0.12);
+}
+
+.cb-form .button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+/* Phones: a little closer to the corner. */
+@media (max-width: 680px) {
+  .cb-launcher {
+    left: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .cb-panel {
+    left: 16px;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    width: calc(100vw - 32px);
+    height: min(500px, calc(100vh - var(--nav-height) - 104px));
+    height: min(500px, calc(100dvh - var(--nav-height) - 104px));
+  }
+}

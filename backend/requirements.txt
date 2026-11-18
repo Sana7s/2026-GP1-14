@@ -4,3 +4,4 @@ psycopg2-binary>=2.9,<3
 python-dotenv>=1.0,<2
 Pillow>=10,<13
 reportlab>=4,<5
+groq>=0.11.

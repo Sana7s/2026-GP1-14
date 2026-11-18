@@ -3,26 +3,13 @@ import { showPopup, useNotificationState } from "../../components/PopupNotificat
    BurnCare — pages/staff/StaffConsultationsPage.jsx
    ---------------------------------------------------------------------
    Consultations (/staff/consultations).
-     • Staff: the questions they sent to a burn specialist, and the
-       answers. (New questions are asked from a report page.)
-     • Approved burn specialists: also the questions waiting for a
-       specialist. The first specialist to reply takes the case.
-   Each consultation opens as a short conversation (messages).
-   Data: backend/consultations.py
-     GET  /api/consultations              the list
-     GET  /api/consultations/<id>         one conversation
-     POST /api/consultations/<id>/messages   reply
-     POST /api/consultations/<id>/close      close it
-   "?open=<id>" in the address opens that conversation straight away.
-   Styles: "14. HEALTHCARE STAFF PAGES" in styles.css.
-   ===================================================================== */
+    ===================================================================== */
 
 import { useCallback, useEffect, useState } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { api } from "../../auth.js";
 import { CONSULT_STATUS, isSpecialist } from "../../staffData.js";
 
-// The groups on the page, in order.
 const GROUPS = [
   { status: "open", title: "Waiting for a specialist" },
   { status: "answered", title: "Answered" },
@@ -34,7 +21,7 @@ function StaffConsultationsPage() {
   const specialist = isSpecialist(account);
   const [searchParams, setSearchParams] = useSearchParams();
   const openId = Number(searchParams.get("open")) || null;
-  const [list, setList] = useState(null); // null = loading, "error", or the list
+  const [list, setList] = useState(null);
 
   const load = useCallback(
     () =>
@@ -57,8 +44,8 @@ function StaffConsultationsPage() {
           <h1>Consultations</h1>
           <p>
             {specialist
-              ? "Answer questions from other staff about their patients' burns. The first specialist to reply takes the case."
-              : "Questions you sent to a burn specialist, and their answers. To ask a new question, open a report."}
+              ? "Answer questions from other staff about their patients' burns. Multiple specialists can review and reply."
+              : "Questions you sent to burn specialists, and their multi-specialist answers."}
           </p>
         </div>
         {!specialist && (
@@ -101,9 +88,9 @@ function StaffConsultationsPage() {
                     account={account}
                   />
                 ))}
-              </ul>
-            </section>
-          );
+            </ul>
+          </section>
+        );
         })}
     </div>
   );
@@ -123,11 +110,10 @@ function ConsultationItem({ consultation, open, onToggle, onChanged, account }) 
         <span className={`staff-approval ${status.tone}`}>{status.label}</span>
       </button>
       {open && <Conversation id={consultation.id} reportCode={consultation.reportCode} onChanged={onChanged} account={account} />}
-    </li>
+  </li>
   );
 }
 
-// One consultation: the question, the messages, and a reply box.
 function Conversation({ id, reportCode, onChanged, account }) {
   const [thread, setThread] = useState(null);
   const [problem, setProblem] = useNotificationState("");

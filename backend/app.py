@@ -34,7 +34,7 @@ import patient
 import staff
 from config import Config
 from flask_cors import CORS
-
+import chat
 
 def create_app():
     app = Flask(__name__)
@@ -51,6 +51,7 @@ def create_app():
     app.register_blueprint(consultations.bp)   # /api/consultations/...
     app.register_blueprint(patient.bp)         # /api/patient/...
     app.register_blueprint(staff.bp)           # /api/staff/...
+    app.register_blueprint(chat.bp)            # /api/chat
 
 # Recovery Tracking: save and retrieve recovery timeline entries
     # mapped to table recovery_entries in PostgreSQL for TrackRecovery.jsx
