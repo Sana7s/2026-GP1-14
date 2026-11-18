@@ -29,9 +29,8 @@
     19. Healthcare staff pages
     20. Page titles and the staff activity log
     21. Pop-up messages (success, warning, error)
-    22. FIRST AID GUIDE 
-    23. HEALTHCARE STAFF PAGES
-    24. BREADCRUMB
+    22. HOME PAGE CHATBOT 
+    23. BREADCRUMBs
 
   
    ===================================================================== */
@@ -6816,7 +6815,7 @@ button.account-menu-item {
 }
 
 /* =====================================================================
-   22. FIRST AID GUIDE  (pages/FirstAidPage.jsx, /patient/first-aid)
+   18. FIRST AID GUIDE  (pages/FirstAidPage.jsx, /patient/first-aid)
    ===================================================================== */
 .first-aid-header {
   padding: 8px 4px 4px;
@@ -7033,7 +7032,7 @@ button.account-menu-item {
   font-size: var(--text-sub);
 }
 /* =====================================================================
-   23. HEALTHCARE STAFF PAGES  (/staff/...)
+   19. HEALTHCARE STAFF PAGES  (/staff/...)
    Home, New assessment, Reports, one report, Consultations, My profile.
    They use the patient page design (section 10) — the same top bar,
    cards, colours and type — plus the few extra pieces below.
@@ -8198,7 +8197,7 @@ button.account-menu-item {
 }
 
 /* =====================================================================
-   24. BREADCRUMBs 
+   23. BREADCRUMBs 
    A thin strip under all four headers (public, patient, staff, admin)
    that shows where you are, e.g. "Patient › My reports › Report".
    ===================================================================== */
