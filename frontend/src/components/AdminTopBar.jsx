@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from "react";
 import { Link, Outlet, useNavigate } from "react-router-dom";
+import PageCrumb from "./PageCrumb.jsx";
 import { getCurrentAccount, logOut } from "../auth.js";
 
 function AdminTopBar() {
@@ -67,6 +68,7 @@ function AdminTopBar() {
           </div>
         </div>
       </header>
+       <PageCrumb />
 
       <main id="main-content">
         <Outlet />

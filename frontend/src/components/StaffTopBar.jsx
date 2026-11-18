@@ -22,6 +22,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import PageCrumb from "./PageCrumb.jsx";
 import { getCurrentAccount, logOut, pageAfterLogin } from "../auth.js";
 import { initials } from "../patientData.js";
 import { isApproved } from "../staffData.js";
@@ -96,6 +97,8 @@ function StaffTopBar() {
           <AccountMenu account={account} />
         </div>
       </header>
+
+       <PageCrumb />
 
       {/* ===== 2. The page ===== */}
       <main id="main-content" className="patient-main">
@@ -252,4 +255,4 @@ function LogoutIcon() {
   );
 }
 
-export default StaffTopBar;
+export default StaffTopBar;

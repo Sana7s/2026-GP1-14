@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
+import PageCrumb from "./PageCrumb.jsx";
 import { NAV_ITEMS } from "../content.js";
 
 /* =====================================================================
@@ -115,6 +116,8 @@ function SiteLayout({ brandName, children }) {
           </button>
         </div>
       </header>
+
+  <PageCrumb />
 
       {/* ---------- PHONE MENU: full-screen list of all links ---------- */}
       <nav

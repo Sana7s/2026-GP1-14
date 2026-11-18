@@ -29,8 +29,9 @@
     19. Healthcare staff pages
     20. Page titles and the staff activity log
     21. Pop-up messages (success, warning, error)
-    18. FIRST AID GUIDE 
-    19. HEALTHCARE STAFF PAGES
+    22. FIRST AID GUIDE 
+    23. HEALTHCARE STAFF PAGES
+    24. BREADCRUMB
 
   
    ===================================================================== */
@@ -6815,7 +6816,7 @@ button.account-menu-item {
 }
 
 /* =====================================================================
-   18. FIRST AID GUIDE  (pages/FirstAidPage.jsx, /patient/first-aid)
+   22. FIRST AID GUIDE  (pages/FirstAidPage.jsx, /patient/first-aid)
    ===================================================================== */
 .first-aid-header {
   padding: 8px 4px 4px;
@@ -7032,7 +7033,7 @@ button.account-menu-item {
   font-size: var(--text-sub);
 }
 /* =====================================================================
-   19. HEALTHCARE STAFF PAGES  (/staff/...)
+   23. HEALTHCARE STAFF PAGES  (/staff/...)
    Home, New assessment, Reports, one report, Consultations, My profile.
    They use the patient page design (section 10) — the same top bar,
    cards, colours and type — plus the few extra pieces below.
@@ -8193,5 +8194,78 @@ button.account-menu-item {
     width: calc(100vw - 32px);
     height: min(500px, calc(100vh - var(--nav-height) - 104px));
     height: min(500px, calc(100dvh - var(--nav-height) - 104px));
+  }
+}
+
+/* =====================================================================
+   24. BREADCRUMBs 
+   A thin strip under all four headers (public, patient, staff, admin)
+   that shows where you are, e.g. "Patient › My reports › Report".
+   ===================================================================== */
+.page-crumb {
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--white), var(--blush-soft));
+}
+
+.page-crumb-inner {
+  width: min(var(--content), calc(100% - var(--gutter) * 2));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 0;
+  margin: 0 auto;
+  padding: 9px 0;
+  list-style: none;
+  font-size: var(--text-small);
+  line-height: 1.4;
+}
+
+.page-crumb-item {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.page-crumb-link {
+  color: var(--muted);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: color 180ms ease;
+}
+
+.page-crumb-link:hover {
+  color: var(--rose);
+}
+
+.page-crumb-link:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+}
+
+/* The small arrow between the parts. */
+.page-crumb-sep {
+  display: inline-flex;
+  margin: 0 8px;
+  color: #c9bfc2;
+}
+
+/* The page you're on. */
+.page-crumb-current {
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Phones: a little tighter. */
+@media (max-width: 560px) {
+  .page-crumb-inner {
+    padding: 8px 0;
+    font-size: 13px;
+  }
+
+  .page-crumb-sep {
+    margin: 0 6px;
   }
 }
