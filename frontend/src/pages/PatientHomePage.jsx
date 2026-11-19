@@ -27,8 +27,7 @@ const REPORTS_SHOWN = 3; // newest reports on the home page; "See all" shows the
 // "23 Oct 2026, 14:40" (from Flask) → "23 Oct 2026"
 const dayOnly = (text) => String(text || "").split(",")[0];
 
-// Suggested questions under the chat box.
-const CHAT_SUGGESTIONS = ["When should I see a doctor?", "How do I change a dressing?", "Signs of infection"];
+
 
 function PatientHomePage() {
   const { account } = useOutletContext(); // the signed-in patient (PatientTopBar)
@@ -159,9 +158,7 @@ function PatientHomePage() {
         </section>
       </div>
 
-      {/* ===== 4. Wound-care chat ===== */}
-      <WoundCareChat />
-
+    
       {/* ===== 5. First aid ===== */}
       <section className="first-aid-strip" aria-labelledby="first-aid-title">
         <span className="first-aid-icon" aria-hidden="true">
@@ -180,42 +177,6 @@ function PatientHomePage() {
       </section>
       </div>
     </div>
-  );
-}
-
-// Wound-care chat (Sprint 2): the same layout as the final chat box, but
-// switched off, so the space is kept on the page.
-function WoundCareChat() {
-  return (
-    <section className="patient-card is-upcoming" aria-labelledby="chat-title">
-      <div className="patient-card-head">
-        <h2 id="chat-title">Wound-care chat</h2>
-        <span className="soon-badge">Coming in Sprint 2</span>
-      </div>
-      <p className="patient-card-text">
-        Soon you can ask about dressings, cleaning, signs of infection or recovery here.
-      </p>
-
-      <div className="chat-suggestions">
-        {CHAT_SUGGESTIONS.map((text) => (
-          <button key={text} type="button" className="chat-chip" disabled>
-            {text}
-          </button>
-        ))}
-      </div>
-
-      <div className="chat-form">
-        <label className="visually-hidden" htmlFor="chat-question">
-          Your question
-        </label>
-        <div className="text-input">
-          <input id="chat-question" type="text" placeholder="Available in Sprint 2" disabled />
-        </div>
-        <button type="button" className="button button-dark" disabled>
-          Ask
-        </button>
-      </div>
-    </section>
   );
 }
 

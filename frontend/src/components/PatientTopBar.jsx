@@ -27,7 +27,6 @@ const PATIENT_LINKS = [
   { to: "/patient", label: "Home", end: true },
   { to: "/patient/reports", label: "My reports" },
   { to: "/patient/recovery", label: "Recovery" },
-  { to: "/patient/chat", label: "Wound-care chat" },
 ];
 
 function PatientTopBar() {

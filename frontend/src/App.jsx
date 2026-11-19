@@ -85,7 +85,6 @@ function App() {
         <Route path="reports" element={<PatientHistory />} />
         <Route path="reports/:reportId" element={<ReportPage />} />
         <Route path="recovery" element={<TrackRecovery />} />
-        <Route path="chat" element={<ComingSoonPage title="Wound-care chat" />} />
         <Route path="first-aid" element={<FirstAidPage />} />
         <Route path="profile" element={<PatientProfilePage />} />
         <Route path="change-password" element={<ChangePasswordPage />} />
