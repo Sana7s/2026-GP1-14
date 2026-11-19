@@ -8195,3 +8195,91 @@ button.account-menu-item {
     height: min(500px, calc(100dvh - var(--nav-height) - 104px));
   }
 }
+/* =====================================================================
+   23. VOICE ANSWERS  (components/VoiceFill.jsx)
+   One "Fill by voice" button above the questions, the language switch
+   and the question being listened to. All class names start with "vm-".
+   ===================================================================== */
+
+.vm-panel {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--card-radius);
+  background: var(--blush-soft);
+}
+
+.vm-panel-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.vm-button,
+.vm-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+}
+
+.vm-button:hover,
+.vm-lang:hover {
+  border-color: var(--pink);
+  color: var(--rose);
+}
+
+.vm-button.is-listening {
+  border-color: var(--coral);
+  background: var(--blush-soft);
+  color: var(--rose);
+  animation: vm-pulse 1.2s ease-in-out infinite;
+}
+
+.vm-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.vm-lang:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vm-question {
+  margin-top: 12px;
+}
+
+.vm-question-label {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.vm-question-hint {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+@keyframes vm-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(230, 83, 89, 0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(230, 83, 89, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vm-button.is-listening { animation: none; }
+}

@@ -16,6 +16,7 @@ import { Link } from "react-router-dom";
 import { prefersReducedMotion } from "../components/animations.jsx";
 import { Chevron } from "../components/Chevron.jsx";
 import TbsaCalculator from "../components/TbsaCalculator.jsx";
+import VoiceFill from "../components/VoiceFill.jsx";
 
 const EMERGENCY_QUESTIONS = [
   {
@@ -129,6 +130,7 @@ function PatientEntry() {
   const [saveProblem, setSaveProblem] = useNotificationState(""); // message if saving failed
   const [tbsa, setTbsa] = useState(null); // latest result from the body map
   const [mapKey, setMapKey] = useState(0); // change it to clear the body map
+  const [voiceLang, setVoiceLang] = useState("en-US"); // language of voice answers
   const fileInputRef = useRef(null);
 
   const child = isChild(form.age);
@@ -182,7 +184,10 @@ function PatientEntry() {
     });
     clearMissing("conditions");
   };
-
+const voiceConditions = (list) => {
+  setForm((old) => ({ ...old, conditions: list }));
+  clearMissing("conditions");
+};
   const choosePhoto = (file) => {
     if (!file) return;
     if (!PHOTO_TYPES.includes(file.type)) {
@@ -402,12 +407,25 @@ function PatientEntry() {
                 <div>
                   <span className="guest-step-label">Step 1</span>
                   <h2 className="guest-step-title">About the burn</h2>
+                  
                 </div>
                 <button type="button" className="back-button" onClick={() => setScreen("emergency")}>
                   Back
                 </button>
               </div>
-
+              <VoiceFill
+  lang={voiceLang}
+  onLangChange={setVoiceLang}
+  onFocus={goToQuestion}
+  steps={[
+    { key: "age", label: "How old is the patient?", kind: "age", options: AGE_GROUPS, hint: "Say the age, for example “8 years”", onResult: (v) => answer("age", v) },
+    { key: "cause", label: "What caused the burn?", kind: "single", options: BURN_CAUSES, onResult: (v) => answer("cause", v) },
+    { key: "circumferential", label: "Does the burn go all the way around a limb, neck or chest?", kind: "single", options: ["Yes", "No", "Not sure"], onResult: (v) => answer("circumferential", v) },
+    { key: "conditions", label: "Long-term conditions?", kind: "multi", options: CONDITIONS, hint: "Say the conditions, or “none”", onResult: voiceConditions },
+    { key: "notHealed", label: "Has the burn lasted over 2 weeks without healing?", kind: "single", options: ["Yes", "No"], onResult: (v) => answer("notHealed", v) },
+    { key: "childUnwell", label: "Does the child seem unwell or feverish?", kind: "single", options: ["Yes", "No", "Not sure"], ask: (a) => isChild(a.age ?? form.age), onResult: (v) => answer("childUnwell", v) },
+  ]}
+/>
               <div className="field-grid">
                 <div id="field-age" className={`field${isMissing("age") ? " is-missing" : ""}`}>
                   <span className="field-label">How old is the patient? <span className="required-mark">*</span></span>
