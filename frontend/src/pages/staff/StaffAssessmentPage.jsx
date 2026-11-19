@@ -23,6 +23,7 @@ import { useNavigate } from "react-router-dom";
 import { prefersReducedMotion } from "../../components/animations.jsx";
 import ClinicalFields from "../../components/ClinicalFields.jsx";
 import TbsaCalculator from "../../components/TbsaCalculator.jsx";
+import VoiceFill from "../../components/VoiceFill.jsx";
 import {
   AGE_GROUPS,
   AGE_IN_YEARS,
@@ -52,6 +53,7 @@ function StaffAssessmentPage() {
   const [saving, setSaving] = useState(false);
   const [saveProblem, setSaveProblem] = useNotificationState("");
   const fileInputRef = useRef(null);
+  const [voiceLang, setVoiceLang] = useState("en-US"); // language of voice answers
   const child = isChild(form.age);
 
   // Free the memory used by an old photo preview.
@@ -88,6 +90,18 @@ function StaffAssessmentPage() {
       return { ...old, conditions: list };
     });
     clear("conditions");
+  };
+  const voiceConditions = (list) => {
+    setForm((old) => ({ ...old, conditions: list }));
+    clear("conditions");
+  };
+  // Scrolls to a question while it is being asked by voice.
+  const focusQuestion = (key) => {
+    const box = document.getElementById(`field-${key}`);
+    box?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+    box?.classList.remove("is-flashing");
+    void box?.offsetWidth;
+    box?.classList.add("is-flashing");
   };
 
   const choosePhoto = (file) => {
@@ -240,6 +254,22 @@ function StaffAssessmentPage() {
           {/* ===== STEP 3: About the burn ===== */}
           <section className="guest-step">
             <StepHead number={3} title="About the burn" />
+
+            {/* One button that asks the questions below by voice. */}
+            <VoiceFill
+              lang={voiceLang}
+              onLangChange={setVoiceLang}
+              onFocus={focusQuestion}
+              steps={[
+                { key: "age", label: "Patient's age", kind: "age", options: AGE_GROUPS, hint: "Say the age, for example “8 years”", onResult: (v) => answer("age", v) },
+                { key: "cause", label: "Cause of the burn", kind: "single", options: BURN_CAUSES, onResult: (v) => answer("cause", v) },
+                { key: "circumferential", label: "Does the burn go all the way around a limb, neck or chest?", kind: "single", options: ["Yes", "No", "Not sure"], onResult: (v) => answer("circumferential", v) },
+                { key: "conditions", label: "Long-term conditions", kind: "multi", options: CONDITIONS, hint: "Say the conditions, or “none”", onResult: voiceConditions },
+                { key: "notHealed", label: "Has the burn lasted over 2 weeks without healing?", kind: "single", options: ["Yes", "No"], onResult: (v) => answer("notHealed", v) },
+                { key: "childUnwell", label: "Does the child seem unwell or feverish?", kind: "single", options: ["Yes", "No", "Not sure"], ask: (a) => isChild(a.age ?? form.age), onResult: (v) => answer("childUnwell", v) },
+              ]}
+            />
+
             <div className="field-grid">
               <Question id="age" label="Patient's age" missing={missingClass("age")} error={error("age")}>
                 <Choices options={AGE_GROUPS} value={form.age} onChoose={(value) => answer("age", value)} />
