@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import PageCrumb from "./PageCrumb.jsx";
 import { getCurrentAccount, logOut } from "../auth.js";
 import { initials } from "../patientData.js";
 
@@ -83,6 +84,9 @@ function PatientTopBar() {
           <AccountMenu patient={patient} />
         </div>
       </header>
+
+      <PageCrumb />
+
 
       {/* ===== 2. The page ===== */}
       <main id="main-content" className="patient-main">
