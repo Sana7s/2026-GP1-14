@@ -561,7 +561,7 @@ function ConsultCard({ reportId, consultations, isSpecialist, onAsked }) {
               {sending ? "Sending…" : "Send to a specialist"}
             </button>
           </div>
-          <p className="patient-note">The first approved burn specialist to answer takes the case.</p>
+          <p className="patient-note">All approved burn specialists can see your question and reply.</p>
         </form>
       )}
     </section>

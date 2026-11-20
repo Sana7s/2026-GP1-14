@@ -11,12 +11,19 @@ API addresses (all start with /api/consultations):
   GET  /<id>                one consultation with its messages
   POST /<id>/messages       add a message (asker or any specialist)
   POST /<id>/close          close the consultation
+
+Emails (mailer.py): a new question is emailed to the chosen specialist,
+or to all approved burn specialists; a specialist's reply is emailed to
+the staff member who asked. The emails never contain the question or
+any patient detail, only a reminder to sign in. If an email fails, the
+consultation still works.
 """
 
 from flask import Blueprint, jsonify, request
 
 from auth import error, role_required
 from db import commit, execute, query_all, query_one
+from mailer import notice_email, send_email
 
 bp = Blueprint("consultations", __name__, url_prefix="/api/consultations")
 
@@ -30,8 +37,18 @@ def can_see(user, row):
     return (
         row["requested_by"] == user["account_id"]
         or row["specialist_id"] == user["account_id"]
-        or (is_specialist(user) and row["status"] == "open" and (row["specialist_id"] is None or row["specialist_id"] == user["account_id"]))
+        or (is_specialist(user) and row["status"] != "closed" and (row["specialist_id"] is None or row["specialist_id"] == user["account_id"]))
     )
+
+
+def _notify(addresses, heading, paragraphs):
+    """Email each address. A failed email must never stop the consultation."""
+    for address in addresses:
+        try:
+            text, html = notice_email(heading, paragraphs, "Sign in to BurnCare to open the consultation.")
+            send_email(address, heading, text, html)
+        except Exception as problem:  # the consultation is already saved
+            print(f"Consultation email to {address} failed:", problem)
 
 
 @bp.get("/specialists")
@@ -56,10 +73,10 @@ def create(user):
     question = str(data.get("question") or "").strip()
     code = str(data.get("reportCode") or "").strip().upper()
     specialist_id = data.get("specialistId")
-    
+
     if not question:
         return error("Please write your question.", field="question")
-    
+
     assessment = query_one("SELECT assessment_id FROM assessments WHERE report_code = %s", (code,))
     if not assessment:
         return error("Report not found.", 404, field="reportCode")
@@ -72,6 +89,35 @@ def create(user):
         (assessment["assessment_id"], user["account_id"], specialist_id if specialist_id else None, question),
     )
     commit()
+
+    # Email the chosen specialist, or every approved burn specialist.
+    try:
+        if specialist_id:
+            people = query_all(
+                """
+                SELECT email FROM accounts
+                WHERE account_id = %s AND staff_role = 'burn_specialist' AND is_approved = TRUE
+                """,
+                (specialist_id,),
+            )
+        else:
+            people = query_all(
+                """
+                SELECT email FROM accounts
+                WHERE role = 'staff' AND staff_role = 'burn_specialist' AND is_approved = TRUE
+                  AND account_id <> %s
+                """,
+                (user["account_id"],),
+            )
+        _notify(
+            [p["email"] for p in people],
+            "New consultation question",
+            [f"A healthcare staff member asked a question about report {code}.",
+             "Sign in to BurnCare to read it and reply."],
+        )
+    except Exception as problem:
+        print("Could not email the specialists:", problem)
+
     return jsonify({"id": row["consultation_id"]}), 201
 
 
@@ -88,7 +134,7 @@ def list_consultations(user):
         JOIN accounts u ON u.account_id = c.requested_by
         WHERE c.requested_by = %s
            OR c.specialist_id = %s
-           OR (%s AND c.status = 'open' AND (c.specialist_id IS NULL OR c.specialist_id = %s))
+           OR (%s AND c.status <> 'closed' AND (c.specialist_id IS NULL OR c.specialist_id = %s))
         ORDER BY c.created_at DESC
         """,
         (user["account_id"], user["account_id"], is_specialist(user), user["account_id"]),
@@ -139,9 +185,12 @@ def add_message(user, consultation_id):
     if not text:
         return error("Please write a message.", field="text")
 
-    # Multi-specialist update: Change status to 'answered' when a specialist replies, 
+    # A specialist (not the asker) is replying.
+    specialist_replied = is_specialist(user) and row["requested_by"] != user["account_id"]
+
+    # Multi-specialist update: Change status to 'answered' when a specialist replies,
     # but do NOT lock it to a single specialist so others can also reply.
-    if is_specialist(user) and row["requested_by"] != user["account_id"]:
+    if specialist_replied:
         execute(
             """
             UPDATE consultations
@@ -161,6 +210,21 @@ def add_message(user, consultation_id):
         (consultation_id, consultation_id, user["account_id"], text),
     )
     commit()
+
+    # Tell the staff member who asked that a specialist replied.
+    if specialist_replied:
+        try:
+            asker = query_one("SELECT email FROM accounts WHERE account_id = %s", (row["requested_by"],))
+            if asker:
+                _notify(
+                    [asker["email"]],
+                    "A burn specialist replied",
+                    ["A burn specialist replied to your consultation question.",
+                     "Sign in to BurnCare to read the reply."],
+                )
+        except Exception as problem:
+            print("Could not email the staff member:", problem)
+
     return jsonify({"ok": True}), 201
 
 
