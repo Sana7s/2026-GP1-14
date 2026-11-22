@@ -8,6 +8,7 @@ and sends it back.
 Settings (put them in the .env file, never in the React code):
     OPENAI_API_KEY   the secret key from platform.openai.com/api-keys
     OPENAI_MODEL     optional, which model to use
+    OPENAI_VECTOR_STORE_ID   optional, the uploaded guideline the AI can search
 """
 
 import os
@@ -49,6 +50,8 @@ OTHER BURNS: never say how serious a specific burn is and never recommend medici
 
 If you are not sure about something related to BurnCare (privacy, accuracy figures, launch dates), say you don't have that information. Never invent facts. If the question is not about BurnCare or burns, politely say you can only help with those.
 
+GUIDELINE: use the uploaded guideline for facts. If it does not cover the question, say so and suggest seeing a doctor.
+
 STYLE: reply in the visitor's language. In Arabic, use simple, clear Modern Standard Arabic with short sentences, speak to the person directly, and do not translate English word for word. Keep replies to 3 short sentences (4 for first aid). Plain text only: no markdown, no lists."""
 
 # Remembers recent requests per visitor so nobody can use up the AI credit.
@@ -66,23 +69,6 @@ def _rate_limited(visitor):
     return False
 
 
-# A little joke for the team: asking if Shatha is the best gets a fixed reply.
-SECRET_REPLY = (
-    "👑💖 نعم طبعاً! شذى هي الأفضل بلا منازع! ✨ ذكية ومبدعة ومبرمجة خارقة، "
-    "وإذا في أحد أفضل منها فهو بالتأكيد يتعلم منها الحين 😎 "
-    "تاجها محجوز للأبد 👑 والقلوب كلها لها 💖💖💖"
-)
-
-
-def _secret_reply(message):
-    text = message.lower()
-    for old, new in (("أ", "ا"), ("إ", "ا"), ("آ", "ا"), ("ى", "ي"), ("ة", "ه")):
-        text = text.replace(old, new)
-    if ("شذي" in text or "shatha" in text) and "افضل" in text:
-        return SECRET_REPLY
-    return None
-
-
 @bp.post("/api/chat")
 def chat():
     data = request.get_json(silent=True) or {}
@@ -92,9 +78,6 @@ def chat():
         return jsonify({"error": "Please type a question."}), 400
     if len(message) > MAX_MESSAGE_CHARS:
         return jsonify({"error": f"Please keep your question under {MAX_MESSAGE_CHARS} characters."}), 400
-    secret = _secret_reply(message)
-    if secret:
-        return jsonify({"reply": secret})
     if not os.environ.get("OPENAI_API_KEY"):
         return jsonify({"error": "The assistant is not available right now."}), 503
     if _rate_limited(request.remote_addr):
@@ -111,23 +94,23 @@ def chat():
     while history and history[0]["role"] != "user":
         history.pop(0)
 
-    messages = (
-        [{"role": "system", "content": SYSTEM_PROMPT}]
-        + history
-        + [{"role": "user", "content": message}]
-    )
-
     client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=20.0)
+
+    # If a guideline was uploaded (see upload_guideline.py), let the AI search it.
+    store_id = os.environ.get("OPENAI_VECTOR_STORE_ID")
+    tools = [{"type": "file_search", "vector_store_ids": [store_id]}] if store_id else []
 
     reply = ""
     for model in MODELS:
         try:
-            completion = client.chat.completions.create(
+            response = client.responses.create(
                 model=model,
-                messages=messages,
-                max_completion_tokens=1500,
+                instructions=SYSTEM_PROMPT,
+                input=history + [{"role": "user", "content": message}],
+                tools=tools,
+                max_output_tokens=1500,
             )
-            reply = (completion.choices[0].message.content or "").strip()
+            reply = (response.output_text or "").strip()
             if reply:
                 break
             print(f"OpenAI returned no text ({model}).")
