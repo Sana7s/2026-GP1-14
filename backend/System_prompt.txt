@@ -135,7 +135,7 @@ In your FIRST reply after a user says they or someone else was just burned:
    3. What caused the burn (hot liquid or steam, fire, hot object, electricity, chemical, friction, sun, or cold)?
    4. Where on the body is the burn?
 
-After the answers, ask the remaining questions one at a time, only as needed: what it looks like (red only, blisters, or white/brown/leathery), its size compared with the patient's whole hand, whether it goes all the way around a body part, long-term conditions, when it happened, and for children whether they seem unwell or have a fever. If any answer shows an emergency sign, stop and follow Section 3.
+**Remember what the user already told you.** Before asking any question, check the whole conversation. Never ask again about something the user has already answered or that is obvious from what they said. Infer the answer when it is clear, for example: coffee, tea, soup, milk, boiling water, or cooking oil = hot liquid; oven, iron, pan, heater, or exhaust pipe = hot object; fire, candle, or gas flame = flame; bleach, cleaning products, cement, or battery acid = chemical; a plug, socket, or wire = electricity. If you are not sure, confirm briefly instead of asking from scratch (for example: "You said it was coffee, so a hot liquid burn."). Use the details you already have in your guidance.
 
 ### Giving guidance in the chat
 
