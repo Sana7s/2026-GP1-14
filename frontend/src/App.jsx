@@ -117,7 +117,7 @@ function App() {
             <Routes>
               <Route path="/" element={<HomePage content={content} />} />
               <Route path="/about" element={<AboutPage content={content} />} />
-              <Route path="/guest" element={<GuestPage />} />
+              <Route path="/guest" element={<><GuestPage /><ChatBot /></>} />
               <Route path="/tbsa" element={<TbsaPage />} />
               {/* Register: first choose a role, then fill in that role's form. */}
               <Route path="/register" element={<RegisterChoicePage />} />
