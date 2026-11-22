@@ -27,7 +27,7 @@ MODEL = os.environ.get("OPENAI_MODEL", "gpt-6-luna")
 # If a model fails (busy, wrong name, over the limit), the next one in the list is tried.
 MODELS = list(dict.fromkeys([MODEL, "gpt-6.1-sol"]))
 MAX_MESSAGE_CHARS = 500   # longest question we accept
-MAX_HISTORY = 6           # how many earlier messages the AI sees
+MAX_HISTORY = 20           # how many earlier messages the AI sees
 RATE_LIMIT = 20           # messages allowed per visitor ...
 RATE_WINDOW = 600         # ... in this many seconds
 
