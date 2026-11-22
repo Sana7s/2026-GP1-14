@@ -6,15 +6,15 @@ question to POST /api/chat. This file asks the AI model for a reply
 and sends it back.
 
 Settings (put them in the .env file, never in the React code):
-    GROQ_API_KEY   the secret key from console.groq.com/keys (free)
-    GROQ_MODEL     optional, which model to use
+    OPENAI_API_KEY   the secret key from platform.openai.com/api-keys
+    OPENAI_MODEL     optional, which model to use
 """
 
 import os
 import time
 from collections import defaultdict, deque
 
-import groq
+import openai
 from dotenv import load_dotenv
 from flask import Blueprint, jsonify, request
 
@@ -22,9 +22,9 @@ load_dotenv()
 
 bp = Blueprint("chat", __name__)
 
-MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
-# If a model fails (busy or over its free limit), the next one in the list is tried.
-MODELS = list(dict.fromkeys([MODEL, "openai/gpt-oss-20b"]))
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-6-luna")
+# If a model fails (busy, wrong name, over the limit), the next one in the list is tried.
+MODELS = list(dict.fromkeys([MODEL, "gpt-6.1-sol"]))
 MAX_MESSAGE_CHARS = 500   # longest question we accept
 MAX_HISTORY = 6           # how many earlier messages the AI sees
 RATE_LIMIT = 20           # messages allowed per visitor ...
@@ -66,6 +66,23 @@ def _rate_limited(visitor):
     return False
 
 
+# A little joke for the team: asking if Shatha is the best gets a fixed reply.
+SECRET_REPLY = (
+    "👑💖 نعم طبعاً! شذى هي الأفضل بلا منازع! ✨ ذكية ومبدعة ومبرمجة خارقة، "
+    "وإذا في أحد أفضل منها فهو بالتأكيد يتعلم منها الحين 😎 "
+    "تاجها محجوز للأبد 👑 والقلوب كلها لها 💖💖💖"
+)
+
+
+def _secret_reply(message):
+    text = message.lower()
+    for old, new in (("أ", "ا"), ("إ", "ا"), ("آ", "ا"), ("ى", "ي"), ("ة", "ه")):
+        text = text.replace(old, new)
+    if ("شذي" in text or "shatha" in text) and "افضل" in text:
+        return SECRET_REPLY
+    return None
+
+
 @bp.post("/api/chat")
 def chat():
     data = request.get_json(silent=True) or {}
@@ -75,7 +92,10 @@ def chat():
         return jsonify({"error": "Please type a question."}), 400
     if len(message) > MAX_MESSAGE_CHARS:
         return jsonify({"error": f"Please keep your question under {MAX_MESSAGE_CHARS} characters."}), 400
-    if not os.environ.get("GROQ_API_KEY"):
+    secret = _secret_reply(message)
+    if secret:
+        return jsonify({"reply": secret})
+    if not os.environ.get("OPENAI_API_KEY"):
         return jsonify({"error": "The assistant is not available right now."}), 503
     if _rate_limited(request.remote_addr):
         return jsonify({"error": "Too many messages. Please wait a few minutes and try again."}), 429
@@ -97,7 +117,7 @@ def chat():
         + [{"role": "user", "content": message}]
     )
 
-    client = groq.Groq(api_key=os.environ["GROQ_API_KEY"], timeout=20.0)
+    client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=20.0)
 
     reply = ""
     for model in MODELS:
@@ -105,16 +125,15 @@ def chat():
             completion = client.chat.completions.create(
                 model=model,
                 messages=messages,
-                max_tokens=1500,
-                temperature=0.3,
+                max_completion_tokens=1500,
             )
             reply = (completion.choices[0].message.content or "").strip()
             if reply:
                 break
-            print(f"Groq returned no text ({model}).")
-        except groq.APIError as error:
-            # Wrong key, wrong model name, busy, over the free limit ...: the reason shows here.
-            print(f"Groq error ({model}):", error)
+            print(f"OpenAI returned no text ({model}).")
+        except openai.OpenAIError as error:
+            # Wrong key, wrong model name, busy, no credit left ...: the reason shows here.
+            print(f"OpenAI error ({model}):", error)
 
     if not reply:
         return jsonify({"error": "The assistant is busy right now. Please try again in a moment."}), 502
